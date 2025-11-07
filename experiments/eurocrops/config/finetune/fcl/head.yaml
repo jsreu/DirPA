@@ -1,0 +1,41 @@
+defaults:
+  - finetune_base
+
+name: "${base_name} - finetune head"
+multivariate_tpe: false
+key_metric: "Acc"
+tuning_params:
+  floats:
+    head_lr:
+      log: True
+      low: 1.0e-6
+      high: 1.0e-2
+  ints: {}
+  categoricals:
+    loss_config.gamma: [1.0, 2.0]
+    #dirichlet_config.blend_with_uniform: [false, true]
+    dirichlet_config.alpha: [0.2, 0.7]
+    dirichlet_config.tau: [1.0, 0.8, 0.6]
+
+train_config:
+  dataloader_num_workers: 0
+  prefetch_factor: 2
+  optimizer: "AdamW"
+  head_lr: 1e-5
+  backbone_lr: 0
+  batch_size: 128
+  epochs: 200
+  patience: 15
+  stop_early: True
+  loss_config:
+    name: "FCL"           # focal
+    gamma: 2.0
+    alpha: false # no per-class weights by default (best starting point for balanced training set); for all-shot, can use per-class weighting vector
+  # --- Dirichlet prior augmentation ---
+  dirichlet_config:
+    enabled: true
+    alpha_mode: 'symmetric'
+    alpha: 0.7
+    tau: 1.0
+    blend_with_uniform: false
+    beta: 0.8

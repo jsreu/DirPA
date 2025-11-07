@@ -1,1 +1,1 @@
-# DirPA
+# DirPA - Dirichlet Prior Augmentation
