@@ -65,9 +65,7 @@ class Model(nn.Module):
             load_head: Whether to also load weights for the model head.
         """
 
-        backbone_state = torch.load(
-            checkpoint.joinpath("backbone.pt"), map_location=self.device
-        )
+        backbone_state = torch.load(checkpoint.joinpath("backbone.pt"), map_location=self.device)
         self.backbone.load_state_dict(backbone_state, strict=False)
 
         if load_head and (head_checkpoint := checkpoint.joinpath("head.pt")).is_file():
@@ -93,9 +91,7 @@ class ModelBuilder(ABC, Generic[T]):
     def build_classification_head(self, num_classes: int) -> nn.Module:
         """Build classification head."""
 
-    def build_classification_model(
-        self, num_classes: int, device: torch.device
-    ) -> Model:
+    def build_classification_model(self, num_classes: int, device: torch.device) -> Model:
         """Build model suitable for classification with `num_classes` classes."""
 
         backbone = self.build_backbone()

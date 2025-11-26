@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import torchmetrics
 import torchmetrics.classification
+
 from dirpa.models.base import Model
 
 logger = logging.getLogger(__name__)
@@ -136,16 +137,12 @@ class ScalarMetric(TaskMetric):
         """(Left) division of ScalarMetrics. Name will be copied from self."""
         if isinstance(other, ScalarMetric):
             other = other.metric
-        metric = torchmetrics.metric.CompositionalMetric(
-            torch.true_divide, self.metric, other
-        )
+        metric = torchmetrics.metric.CompositionalMetric(torch.true_divide, self.metric, other)
         return ScalarMetric(self.name, metric)
 
     def __rtruediv__(self, other: torchmetrics.Metric | int | float) -> ScalarMetric:
         """(Right) subtraction of ScalarMetrics. Name will be copied from self."""
-        metric = torchmetrics.metric.CompositionalMetric(
-            torch.true_divide, other, self.metric
-        )
+        metric = torchmetrics.metric.CompositionalMetric(torch.true_divide, other, self.metric)
         return ScalarMetric(self.name, metric)
 
     @staticmethod
@@ -153,14 +150,10 @@ class ScalarMetric(TaskMetric):
         metric_name: str, *args: Any, **kwargs: Any
     ) -> torchmetrics.Metric:
         try:
-            metric: torchmetrics.Metric = getattr(torchmetrics, metric_name)(
-                *args, **kwargs
-            )
+            metric: torchmetrics.Metric = getattr(torchmetrics, metric_name)(*args, **kwargs)
         except Exception:
             try:
-                metric = getattr(torchmetrics.classification, metric_name)(
-                    *args, **kwargs
-                )
+                metric = getattr(torchmetrics.classification, metric_name)(*args, **kwargs)
             except Exception:
                 raise ValueError(
                     "Could not instantiate a torchmetrics.Metric or "
@@ -230,9 +223,7 @@ class ConfusionMatrix(TaskMetric):
             luma = r_fac * r + g_fac * g + b_fac * b
             return luma > threshold
 
-        assert (
-            computed.shape[0] == computed.shape[1]
-        )  # should be square, i.e. height=width
+        assert computed.shape[0] == computed.shape[1]  # should be square, i.e. height=width
         num = computed.shape[0]
         if self.class_names is None:
             fig_class_names = list(map(str, range(num)))
@@ -245,15 +236,11 @@ class ConfusionMatrix(TaskMetric):
         computed = torch.cat((computed, computed.sum(dim=1, keepdim=True)), dim=1)
 
         # create and format figure
-        normalizer = matplotlib.colors.LogNorm(
-            vmin=1, vmax=computed[-1, -1].item(), clip=True
-        )
+        normalizer = matplotlib.colors.LogNorm(vmin=1, vmax=computed[-1, -1].item(), clip=True)
         cmap = plt.get_cmap("Blues")
         cm_to_inch = 1 / 2.54
         cm_per_cell = 1
-        fsize = (
-            (num + 7) * cm_per_cell * cm_to_inch
-        )  # adjust figure size to num classes
+        fsize = (num + 7) * cm_per_cell * cm_to_inch  # adjust figure size to num classes
         fig, ax = plt.subplots(figsize=(fsize, fsize))
         ax.matshow(computed, cmap=cmap, norm=normalizer)
         for idx, val in np.ndenumerate(computed):
@@ -279,9 +266,7 @@ class ConfusionMatrix(TaskMetric):
             )
 
         ax.set_xticks(list(range(num + 1)))
-        ax.set_xticklabels(
-            fig_class_names + ["sum"], rotation=-30, ha="right", fontsize="xx-small"
-        )
+        ax.set_xticklabels(fig_class_names + ["sum"], rotation=-30, ha="right", fontsize="xx-small")
         ax.set_yticks(list(range(num + 1)))
         ax.set_yticklabels(
             fig_class_names + ["sum"], rotation=-30, va="bottom", fontsize="xx-small"

@@ -117,9 +117,7 @@ def _sample_dirichlet_prior(
         alpha_tensor[focus_class_idx] = alpha_focus
         pi = torch.distributions.Dirichlet(alpha_tensor).sample()
     else:
-        pi = torch.distributions.Dirichlet(
-            torch.full((C,), cast(float, alpha))
-        ).sample()
+        pi = torch.distributions.Dirichlet(torch.full((C,), cast(float, alpha))).sample()
 
     if blend_with_uniform:
         beta = cast(float, beta)

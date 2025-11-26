@@ -140,8 +140,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
             mlflow_callback = MLFlowCallback(
                 mlflow_logger=mlflow_logger,
                 log_model=not tuning,
-                log_model_on_validation=self.config.log_model_on_validation
-                and not tuning,
+                log_model_on_validation=self.config.log_model_on_validation and not tuning,
                 log_artifact_metrics_on_validation=self.config.log_artifact_metrics_on_validation
                 and not tuning,
             )
@@ -228,9 +227,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
         )
 
         best_trial = study.best_trial
-        results = self._get_trial_runs(
-            study_name=study_name, trial_id=best_trial._trial_id
-        )
+        results = self._get_trial_runs(study_name=study_name, trial_id=best_trial._trial_id)
         result = results[-1] if direction == "minimize" else results[0]
 
         result_path = self.runs_dir.joinpath(f"{study_name}-best.json")
@@ -250,8 +247,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
             runs = [run for run in runs if run.run_name.endswith(f"trial-{trial_id}")]
         if len(runs) != 1:
             raise ValueError(
-                "Could not find unambigous run for trial. "
-                f"Expected 1 run. Got {len(runs)}"
+                "Could not find unambigous run for trial. " f"Expected 1 run. Got {len(runs)}"
             )
         return runs
 
@@ -305,11 +301,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
 
         # Different model configs make runs incompatible
         model_config_dict = self.model_config.model_dump()
-        results = [
-            run
-            for run in results
-            if run.config.get("model_config") == model_config_dict
-        ]
+        results = [run for run in results if run.config.get("model_config") == model_config_dict]
 
         return results
 
@@ -357,9 +349,7 @@ class TrainExperiment(TunedExperiment[TrainExperimentConfig]):
                 "to True. Otherwise specifiy a train_task."
             )
         self.train_task = cast(Task, train_task)
-        self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     def train_model(
         self, run_config: Mapping[str, BaseConfig], callbacks: list[TrainCallback]
@@ -403,9 +393,7 @@ class TrainExperiment(TunedExperiment[TrainExperimentConfig]):
             num_classes=self.train_task.num_classes, device=self.device
         )
         if self.config.model_checkpoint is not None:
-            logger.info(
-                "Loading model weights from %s", str(self.config.model_checkpoint)
-            )
+            logger.info("Loading model weights from %s", str(self.config.model_checkpoint))
             model.load(checkpoint=self.config.model_checkpoint, load_head=False)
         return model
 

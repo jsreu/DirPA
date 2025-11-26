@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 from typing import Literal, cast
 
-from dirpa.dataset.eurocrops.train import load_dataset_split
 from eurocropsml.dataset.config import (
     EuroCropsDatasetConfig,
     EuroCropsDatasetPreprocessConfig,
@@ -10,6 +9,7 @@ from eurocropsml.dataset.config import (
 )
 from eurocropsml.dataset.preprocess import get_class_ids_to_names
 
+from dirpa.dataset.eurocrops.train import load_dataset_split
 from dirpa.dataset.task import Task
 
 logger = logging.getLogger(__name__)

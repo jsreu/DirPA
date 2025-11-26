@@ -122,9 +122,7 @@ class TransformerModelBuilder(ModelBuilder):
     def build_classification_head(self, num_classes: int) -> nn.Linear:
         return nn.Linear(self.config.d_model, num_classes)
 
-    def build_classification_model(
-        self, num_classes: int, device: torch.device
-    ) -> Model:
+    def build_classification_model(self, num_classes: int, device: torch.device) -> Model:
         backbone = self.build_backbone()
         head = self.build_classification_head(num_classes)
         return TransformerModel(backbone=backbone, head=head, device=device)

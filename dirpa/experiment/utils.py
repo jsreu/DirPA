@@ -40,9 +40,7 @@ class TuningConfig(BaseModel):
 
     floats: dict[str, DistributionalFloatParamConfig]
     ints: dict[str, DistributionalIntParamConfig]
-    categoricals: dict[
-        str, Sequence[float] | Sequence[int] | Sequence[bool] | Sequence[str]
-    ]
+    categoricals: dict[str, Sequence[float] | Sequence[int] | Sequence[bool] | Sequence[str]]
 
     @field_validator("categoricals")
     @classmethod
@@ -52,18 +50,14 @@ class TuningConfig(BaseModel):
     ) -> dict[str, Sequence[float] | Sequence[int] | Sequence[bool] | Sequence[str]]:
         """Ensure correct typing of integer categorical parameters."""
         for key, value in v.items():
-            if all(
-                isinstance(item, (int, float)) and int(item) == item for item in value
-            ):
+            if all(isinstance(item, (int, float)) and int(item) == item for item in value):
                 v[key] = list(map(int, value))
         return v
 
 
 def get_model_builder(model_config: ModelConfig) -> ModelBuilder:
     """Get model builder for given config."""
-    model_builder_class: Type[ModelBuilder] = getattr(
-        transformer, model_config.model_builder
-    )
+    model_builder_class: Type[ModelBuilder] = getattr(transformer, model_config.model_builder)
     return model_builder_class(model_config)
 
 

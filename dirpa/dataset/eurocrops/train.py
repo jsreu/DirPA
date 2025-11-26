@@ -62,9 +62,7 @@ def load_dataset_split(
             "finetune", f"{dataset_config.split}_split_{max_samples}.json"
         )
     else:
-        split_file = split_dir.joinpath(
-            "pretrain", f"{dataset_config.split}_split.json"
-        )
+        split_file = split_dir.joinpath("pretrain", f"{dataset_config.split}_split.json")
     if split_file.exists():
         with open(split_file) as outfile:
             data_split = json.load(outfile)
@@ -83,9 +81,7 @@ def load_dataset_split(
     data_satellite_split = {
         key: {
             s: [
-                preprocess_config.preprocess_dir.joinpath(
-                    s, str(dataset_config.year), file
-                )
+                preprocess_config.preprocess_dir.joinpath(s, str(dataset_config.year), file)
                 for file in file_list
             ]
             for s in satellites
@@ -108,9 +104,7 @@ def load_dataset_split(
         raise FileNotFoundError() from err
 
     logger.info(f"Computing {mode} task.")
-    mmap_store = MMapStore(
-        train_list + val_list + (test_list if test_list is not None else [])
-    )
+    mmap_store = MMapStore(train_list + val_list + (test_list if test_list is not None else []))
     metrics = get_metrics(
         dataset_config.metrics,
         num_classes=len(class_names),
@@ -123,8 +117,7 @@ def load_dataset_split(
 
     # inverse frequency
     class_weights = {
-        encoding[class_id]: 1.0 / count
-        for class_id, count in train_class_counts.items()
+        encoding[class_id]: 1.0 / count for class_id, count in train_class_counts.items()
     }
 
     task = Task(

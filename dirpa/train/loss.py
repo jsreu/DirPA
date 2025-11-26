@@ -118,9 +118,7 @@ class LossCEConfig(BaseModel):
     def _build(self, weights: dict[int, float] | None = None, **_: object) -> nn.Module:
         return nn.CrossEntropyLoss(
             weight=(
-                torch.Tensor(weights.values())
-                if self.weighted and weights is not None
-                else None
+                torch.Tensor(weights.values()) if self.weighted and weights is not None else None
             ),
             label_smoothing=self.label_smoothing,
             reduction="none" if self.reduction is None else self.reduction,

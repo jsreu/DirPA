@@ -101,9 +101,7 @@ class TrainConfig(BaseConfig):
 
     @field_validator("backbone_lr")
     @classmethod
-    def validate_separate_lr(
-        cls, v: float | None, info: ValidationInfo
-    ) -> float | None:
+    def validate_separate_lr(cls, v: float | None, info: ValidationInfo) -> float | None:
         """Ensure that backbone_lr is specified jointly with head_lr."""
         valid_head_lr = "head_lr" in info.data and info.data["head_lr"] is not None
         if (v is None and valid_head_lr) or (v is not None and not valid_head_lr):
@@ -125,9 +123,7 @@ class TrainConfig(BaseConfig):
             and info.data["backbone_lr"] is not None
         )
         if v is None and not valid_head_and_backbone_lr:
-            raise ValueError(
-                "Either both head_lr and backbone_lr or lr must be specified."
-            )
+            raise ValueError("Either both head_lr and backbone_lr or lr must be specified.")
         elif v is not None and valid_head_and_backbone_lr:
             logger.warning(
                 "Both head_lr and backbone_lr as well as lr are specified. "
@@ -145,9 +141,7 @@ class Trainer:
         callbacks: Callbacks to call during training
     """
 
-    def __init__(
-        self, config: TrainConfig, callbacks: list[TrainCallback] | None = None
-    ):
+    def __init__(self, config: TrainConfig, callbacks: list[TrainCallback] | None = None):
         self.config = config
         if callbacks is None:
             callbacks = []
@@ -251,8 +245,7 @@ class Trainer:
 
         if validate_every_step * validate_every_epoch != 0:
             raise AssertionError(
-                "Either `validate_every_epoch` or `validate_every_step` "
-                "must be zero."
+                "Either `validate_every_epoch` or `validate_every_step` " "must be zero."
             )
 
         train_dl = task.train_dl(batch_size=self.config.batch_size)
@@ -286,9 +279,7 @@ class Trainer:
             dirichlet_alpha_learner=dirichlet_alpha_learner,
             alpha_lr=alpha_lr,
         )
-        scheduler, patience = self._build_scheduler(
-            optimizer, steps_per_epoch=len(train_dl)
-        )
+        scheduler, patience = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
 
         # initialize the early_stopping object
         early_stopping: EarlyStopping | None = None
@@ -297,9 +288,7 @@ class Trainer:
 
         # If epoch>0 we count by epochs.
         if self.config.epochs:
-            epochs_bar = trange(
-                self.config.epochs, desc="Epochs", position=0, leave=True
-            )
+            epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
             step = 0
             for epoch in epochs_bar:
                 for _, batch in enumerate(tqdm(train_dl, desc="Batches")):
@@ -316,17 +305,13 @@ class Trainer:
                     if validate_every_step != 0:
                         validate = (step + 1) % validate_every_step == 0
                         if validate:
-                            stopped = self._validate(
-                                model, task, early_stopping, step, val_dl
-                            )
+                            stopped = self._validate(model, task, early_stopping, step, val_dl)
                             if stopped:
                                 break
                 if validate_every_epoch != 0:
                     validate = (epoch + 1) % validate_every_epoch == 0
                     if validate:
-                        stopped = self._validate(
-                            model, task, early_stopping, step, val_dl
-                        )
+                        stopped = self._validate(model, task, early_stopping, step, val_dl)
                         if stopped:
                             break
 
@@ -334,8 +319,7 @@ class Trainer:
         else:
             if validate_every_step == 0:
                 raise AssertionError(
-                    "When counting in steps, `validate_every_step` needs to be "
-                    " greater zero."
+                    "When counting in steps, `validate_every_step` needs to be " " greater zero."
                 )
             batches_bar = trange(
                 min(len(train_dl), self.config.steps),
@@ -395,9 +379,7 @@ class Trainer:
                     cast(MLFlowCallback, callback).mlflow_logger.log(
                         "lr", scheduler.get_last_lr()[0], global_step=step
                     )
-                callback.train_callback(
-                    train_loss, train_metrics, model=model, step=step
-                )
+                callback.train_callback(train_loss, train_metrics, model=model, step=step)
 
     def _validate(
         self,

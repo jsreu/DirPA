@@ -43,9 +43,7 @@ class TransferExperiment:
             experiment=self.pretrain_experiment, study_name=run_name
         )
 
-        self.pretrain_experiment.run_training(
-            run_name=run_name, extra_params=extra_params
-        )
+        self.pretrain_experiment.run_training(run_name=run_name, extra_params=extra_params)
 
     def run_finetune_tuning(
         self,
@@ -90,9 +88,7 @@ class TransferExperiment:
                 "Please set mode to 'finetune' when building the experiment. "
                 "Otherwise the finetune experiment is not created."
             )
-        extra_params = self._load_tuning_params(
-            experiment=experiment, study_name=run_name
-        )
+        extra_params = self._load_tuning_params(experiment=experiment, study_name=run_name)
         experiment.run_training(run_name=run_name, extra_params=extra_params)
 
     def _resolve_pretrain_run(self, pretrain_run_name: str) -> tuple[str, Path]:
@@ -128,9 +124,7 @@ class TransferExperiment:
     def _get_finetunig_experiment(
         self, task_name: str, pretrain_run_name: str | None = None
     ) -> TrainExperiment:
-        self.finetuning_experiments = cast(
-            dict[str, TrainExperiment], self.finetuning_experiments
-        )
+        self.finetuning_experiments = cast(dict[str, TrainExperiment], self.finetuning_experiments)
         if task_name not in self.finetuning_experiments:
             raise ValueError(
                 f"Task {task_name} not defined."
@@ -140,9 +134,7 @@ class TransferExperiment:
         experiment = self.finetuning_experiments[task_name]
 
         if pretrain_run_name is not None:
-            pretrain_run_name, model_checkpoint = self._resolve_pretrain_run(
-                pretrain_run_name
-            )
+            pretrain_run_name, model_checkpoint = self._resolve_pretrain_run(pretrain_run_name)
             logger.info("Using pretrained weights from %s", str(model_checkpoint))
             experiment.config.model_checkpoint = model_checkpoint
             experiment.config.tags["pretrain_run_name"] = str(pretrain_run_name)
@@ -165,14 +157,10 @@ class TransferExperiment:
         return experiment
 
     @staticmethod
-    def _load_tuning_params(
-        experiment: TunedExperiment, study_name: str | None
-    ) -> dict[str, Any]:
+    def _load_tuning_params(experiment: TunedExperiment, study_name: str | None) -> dict[str, Any]:
         tuning_results = experiment.load_run_results(run_name=study_name, tuning=True)
         if not tuning_results:
-            logger.warning(
-                "No results from hyperparameter tuning found. Using default params."
-            )
+            logger.warning("No results from hyperparameter tuning found. Using default params.")
             return {}
 
         logger.info(
@@ -263,7 +251,5 @@ class TransferExperimentBuilder(Generic[ExperimentConfigT]):
         self.config = config
 
     @abstractmethod
-    def build_experiment(
-        self, mode: Literal["pretrain", "finetune"]
-    ) -> TransferExperiment:
+    def build_experiment(self, mode: Literal["pretrain", "finetune"]) -> TransferExperiment:
         """Build transfer experiment."""

@@ -92,9 +92,7 @@ class ValidationCallback(TrainCallback):
             }
             metric_name = "val_" + self.key_metric
             if metric_name not in scalar_metrics:
-                raise ValueError(
-                    f"Metric {metric_name} not found in logged scalar metrics."
-                )
+                raise ValueError(f"Metric {metric_name} not found in logged scalar metrics.")
             current_metric = scalar_metrics[metric_name].get_scalar()
             if current_metric > self.best_metric:
                 self.best_metric = current_metric
@@ -116,8 +114,7 @@ class ValidationCallback(TrainCallback):
         """Load best model weights."""
         if self._is_cleared:
             logger.warning(
-                "Checkpoint directory is already cleared."
-                "Can not load best weights. Skipped."
+                "Checkpoint directory is already cleared." "Can not load best weights. Skipped."
             )
         else:
             model.load(self._checkpoint_path, load_head=True)
@@ -129,8 +126,7 @@ class ValidationCallback(TrainCallback):
         """
         if self._is_cleared:
             logger.warning(
-                "Checkpoint directory is already cleared."
-                "Can not clear it again. Skipped."
+                "Checkpoint directory is already cleared." "Can not clear it again. Skipped."
             )
         else:
             logger.info("Clearing checkpoint directory.")
@@ -169,9 +165,7 @@ class OptunaCallback(TrainCallback):
             }
             metric_name = "val_" + self.key_metric
             if metric_name not in scalar_metrics:
-                raise ValueError(
-                    f"Metric {metric_name} not found in logged scalar metrics."
-                )
+                raise ValueError(f"Metric {metric_name} not found in logged scalar metrics.")
             current_metric = scalar_metrics[metric_name].get_scalar()
         if step is not None:
             self.trial.report(current_metric, step=step)

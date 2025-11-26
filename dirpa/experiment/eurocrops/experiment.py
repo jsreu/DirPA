@@ -20,9 +20,7 @@ class EuroCropsExperimentBuilder(TransferExperimentBuilder[EuroCropsTransferConf
         super().__init__(config)
         self.dataset_config = config.eurocrops_dataset
 
-    def build_experiment(
-        self, mode: Literal["pretrain", "finetune"]
-    ) -> TransferExperiment:
+    def build_experiment(self, mode: Literal["pretrain", "finetune"]) -> TransferExperiment:
         """Build transfer experiment."""
         model_channels = self.config.model.in_channels
         if model_channels != self.dataset_config.total_num_channels:
@@ -84,6 +82,4 @@ class EuroCropsExperimentBuilder(TransferExperimentBuilder[EuroCropsTransferConf
             )
 
         else:
-            raise ValueError(
-                f"{mode} not implemented. Choose either 'pretrain' or 'finetune'."
-            )
+            raise ValueError(f"{mode} not implemented. Choose either 'pretrain' or 'finetune'.")

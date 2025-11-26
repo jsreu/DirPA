@@ -21,16 +21,12 @@ class PositionalEncoding(nn.Module):
         AssertionError: If dates has more entries than x.
     """
 
-    def __init__(
-        self, d_hid: int, pos_enc_len: int, t: int = 1000, padding_value_dates: int = -1
-    ):
+    def __init__(self, d_hid: int, pos_enc_len: int, t: int = 1000, padding_value_dates: int = -1):
         super().__init__()
         timesteps = torch.arange(pos_enc_len).unsqueeze(1)
         # Calculate the positional encoding p
         p = torch.zeros(pos_enc_len, d_hid)
-        div_term = torch.exp(
-            torch.arange(0, d_hid, 2).float() * (-math.log(float(t)) / d_hid)
-        )
+        div_term = torch.exp(torch.arange(0, d_hid, 2).float() * (-math.log(float(t)) / d_hid))
         p[:, 0::2] = torch.sin(timesteps * div_term)
         p[:, 1::2] = torch.cos(timesteps * div_term)
         self.register_buffer("p", p)

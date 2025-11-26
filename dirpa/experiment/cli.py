@@ -35,9 +35,7 @@ def build_experiment_app(
     app = typer.Typer(name=experiment_name)
 
     def build_config(overrides: OverridesT) -> ConfigT:
-        with initialize_config_dir(
-            config_dir=str(config_dir.absolute()), version_base=None
-        ):
+        with initialize_config_dir(config_dir=str(config_dir.absolute()), version_base=None):
             if overrides is None:
                 overrides = []
             # Change working directory to resolve additional config paths
@@ -54,9 +52,7 @@ def build_experiment_app(
 
     @app.command(name="config")
     def print_config(
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to the experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to the experiment config."),
     ) -> None:
         """Print the currently used config."""
         config = build_config(overrides)
@@ -66,12 +62,9 @@ def build_experiment_app(
     def pretrain_tuning(
         study_name: str = typer.Option(
             None,
-            help="Name of the tuning study."
-            "All runs will contain this identifier in their name.",
+            help="Name of the tuning study." "All runs will contain this identifier in their name.",
         ),
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to the experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to the experiment config."),
     ) -> None:
         """Run the hyperparameter tuning for pretraining."""
         experiment = build_experiment(build_config(overrides), mode="pretrain")
@@ -82,9 +75,7 @@ def build_experiment_app(
         run_name: str = typer.Option(
             None, help="Name of the experiment run. Will use tuning with same name."
         ),
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to experiment config."),
     ) -> None:
         """Run pretraining."""
         experiment = build_experiment(build_config(overrides), mode="pretrain")
@@ -93,9 +84,7 @@ def build_experiment_app(
     @app.command()
     def tuned_pretraining(
         run_name: str = typer.Option(None, help="Name of the experiment run."),
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to the experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to the experiment config."),
     ) -> None:
         """Run hyperparameter tuning followed by pretraining."""
         pretrain_tuning(run_name, overrides)
@@ -106,17 +95,14 @@ def build_experiment_app(
         task: str = typer.Argument(..., help="Task to finetune on."),
         study_name: str = typer.Option(
             None,
-            help="Name of the tuning study."
-            "All runs will contain this identifier in their name.",
+            help="Name of the tuning study." "All runs will contain this identifier in their name.",
         ),
         pretrain_run: str = typer.Option(
             "auto",
             help="Name of the pretraining run to start from. "
             "Either 'auto', 'random' or a run name.",
         ),
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to the experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to the experiment config."),
     ) -> None:
         """Run the hyperparameter tuning for finetuning."""
         if pretrain_run == "random":
@@ -139,9 +125,7 @@ def build_experiment_app(
             help="Name of the pretraining run to start from. "
             "Either 'auto', 'random' or a run name.",
         ),
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to the experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to the experiment config."),
     ) -> None:
         """Run the finetuning."""
         if pretrain_run == "random":
@@ -164,9 +148,7 @@ def build_experiment_app(
             help="Name of the pretraining run to start from. "
             "Either 'auto', 'random' or a run name.",
         ),
-        overrides: OverridesT = typer.Argument(
-            None, help="Overrides to the experiment config."
-        ),
+        overrides: OverridesT = typer.Argument(None, help="Overrides to the experiment config."),
     ) -> None:
         """Run hyperparameter tuning followed by finetuning."""
         finetune_tuning(task, run_name, pretrain_run, overrides)

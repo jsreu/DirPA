@@ -101,9 +101,7 @@ def run_tuning(
         ):  # use RandomSampler as default for non-categoricals
             sampler: BaseSampler = RandomSampler(seed=sampler_seed)
         else:  # use GridSampler as default for only categoricals
-            sampler = GridSampler(
-                search_space=tuning_params.categoricals, seed=sampler_seed
-            )
+            sampler = GridSampler(search_space=tuning_params.categoricals, seed=sampler_seed)
     elif tuning_sampler.lower() == "grid":
         if len(tuning_params.floats.keys()) > 0 or len(tuning_params.ints.keys()) > 0:
             logger.warning(
@@ -111,15 +109,11 @@ def run_tuning(
                 "strategy. GridSampler only handles categorical parameters, all other "
                 "parameters will be ignored."
             )
-        sampler = GridSampler(
-            search_space=tuning_params.categoricals, seed=sampler_seed
-        )
+        sampler = GridSampler(search_space=tuning_params.categoricals, seed=sampler_seed)
     elif tuning_sampler.lower() == "random":
         sampler = RandomSampler(seed=sampler_seed)
     elif tuning_sampler.lower() == "tpe":
-        sampler = TPESampler(
-            seed=sampler_seed, multivariate=multivariate_tpe, constant_liar=True
-        )
+        sampler = TPESampler(seed=sampler_seed, multivariate=multivariate_tpe, constant_liar=True)
     else:
         raise ValueError(
             f"Unknown sampling strategy {tuning_sampler}, expected 'grid' or 'random'."
@@ -181,9 +175,7 @@ def run_tuning(
             for p in processes:
                 p.join()
     except KeyboardInterrupt:
-        logger.warning(
-            "Encountered keyboard interrupt. Stopping hyperparameter tuning."
-        )
+        logger.warning("Encountered keyboard interrupt. Stopping hyperparameter tuning.")
         # Clean up database if study is interrupted to make sure
         # runs with same name can be started.
         storage_path.unlink()

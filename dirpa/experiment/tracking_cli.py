@@ -111,9 +111,7 @@ def list_runs(
 
 @tracking_app.command(help="Permanently delete a tracked experiment.")
 def delete(
-    experiment_id: str = typer.Option(
-        help="Delete this experiment (and all associated runs)."
-    ),
+    experiment_id: str = typer.Option(help="Delete this experiment (and all associated runs)."),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -127,9 +125,7 @@ def delete(
         runs = _list_experiment_runs_as_dataframe(
             experiment_id, ViewType.DELETED_ONLY, filter_string=None
         )
-        logger.info(
-            f"Found {len(runs)} runs for the experiment with id {experiment_id}."
-        )
+        logger.info(f"Found {len(runs)} runs for the experiment with id {experiment_id}.")
         logger.info("\n" + runs.sort_values("start_time").to_string(index=False))
         if dry_run:
             logger.info("These runs would be permanently deleted.")
@@ -143,9 +139,7 @@ def delete(
                 logger.info(f"{len(runs)} runs will now be permanently deleted.")
                 db_config = _db_config_from_terraform(Path("gcloud"))
                 try:
-                    proxy = subprocess.Popen(
-                        ["./cloud-sql-proxy", db_config["connection_string"]]
-                    )
+                    proxy = subprocess.Popen(["./cloud-sql-proxy", db_config["connection_string"]])
                 except FileNotFoundError:
                     logger.warn(
                         "cloud-sql-proxy is required but could not be found. "
@@ -177,9 +171,7 @@ def delete(
         )
 
 
-def _list_experiments_as_dataframe(
-    view_type: ViewType, filter_string: str | None
-) -> pd.DataFrame:
+def _list_experiments_as_dataframe(view_type: ViewType, filter_string: str | None) -> pd.DataFrame:
     """Helper to get a dataframe of experiments."""
     column_names = {
         "_experiment_id": "experiment_id",
@@ -189,17 +181,11 @@ def _list_experiments_as_dataframe(
         "_lifecycle_stage": "lifecycle_stage",
         "_tags": "tags",
     }
-    experiment_list = mlflow.search_experiments(
-        view_type=view_type, filter_string=filter_string
-    )
-    df = pd.DataFrame(
-        [vars(exp) for exp in experiment_list], columns=column_names.keys()
-    )
+    experiment_list = mlflow.search_experiments(view_type=view_type, filter_string=filter_string)
+    df = pd.DataFrame([vars(exp) for exp in experiment_list], columns=column_names.keys())
     df.rename(columns=column_names, inplace=True)
     df["creation_time"] = pd.to_datetime(df["creation_time"], unit="ms", origin="unix")
-    df["last_update_time"] = pd.to_datetime(
-        df["last_update_time"], unit="ms", origin="unix"
-    )
+    df["last_update_time"] = pd.to_datetime(df["last_update_time"], unit="ms", origin="unix")
     df["experiment_id"] = pd.to_numeric(df["experiment_id"])
     return df
 

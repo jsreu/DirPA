@@ -61,9 +61,7 @@ class Task:
             persistent_workers=bool(num_workers),
         )
 
-    def train_dl(
-        self, batch_size: int | None = None, num_batches: int | None = None
-    ) -> DataLoader:
+    def train_dl(self, batch_size: int | None = None, num_batches: int | None = None) -> DataLoader:
         """Build dataloader serving train data with given batch size or number of batches."""
         if batch_size is None:
             if num_batches is None:
@@ -84,9 +82,7 @@ class Task:
                 batch_size = 1
         return self._build_dl(self.train_set, batch_size, mode="train")
 
-    def val_dl(
-        self, batch_size: int | None = None, num_batches: int | None = None
-    ) -> DataLoader:
+    def val_dl(self, batch_size: int | None = None, num_batches: int | None = None) -> DataLoader:
         """Build dataloader serving validation data with given batch size or number of batches.
 
         Raises ValueError if val_set is None.
@@ -112,9 +108,7 @@ class Task:
                 batch_size = 1
         return self._build_dl(self.val_set, batch_size, mode="test")
 
-    def test_dl(
-        self, batch_size: int | None = None, num_batches: int | None = None
-    ) -> DataLoader:
+    def test_dl(self, batch_size: int | None = None, num_batches: int | None = None) -> DataLoader:
         """Build dataloader serving test data with given batch size or number of batches.
 
         Raises ValueError if test_set is None.

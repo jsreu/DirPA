@@ -47,9 +47,7 @@ class RunResult(BaseModel):
     @classmethod
     def ignore_nontuning_params(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Remove params which should not be considered tunable."""
-        return {
-            name: param for name, param in v.items() if name not in NON_TUNING_PARAMS
-        }
+        return {name: param for name, param in v.items() if name not in NON_TUNING_PARAMS}
 
 
 def get_run_results(
@@ -72,15 +70,11 @@ def get_run_results(
     return results
 
 
-def get_mlflow_runs(
-    experiments: list[str], filter_string: str
-) -> list[mlflow.entities.Run]:
+def get_mlflow_runs(experiments: list[str], filter_string: str) -> list[mlflow.entities.Run]:
     """Search experiments for runs matching filter string."""
     configure_mlflow()
     experiment_ids = [
-        exp.experiment_id
-        for exp in mlflow.search_experiments()
-        if exp.name in experiments
+        exp.experiment_id for exp in mlflow.search_experiments() if exp.name in experiments
     ]
     results: list[mlflow.entities.Run] = mlflow.search_runs(
         experiment_ids,
@@ -110,9 +104,7 @@ def download_run_model(experiment_name: str, run_name: str, runs_dir: Path) -> N
         logger.info("Model for run %s already downloaded.", run_name)
         return
 
-    logger.info(
-        "Looking up run %s for experiment %s in mlflow.", run_name, experiment_name
-    )
+    logger.info("Looking up run %s for experiment %s in mlflow.", run_name, experiment_name)
     run = get_mflow_run_by_name([experiment_name], run_name)
     logger.info("Downloading model weights from mlflow backend.")
     mlflow.artifacts.download_artifacts(

@@ -8,7 +8,7 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "eurocropsssl"
+name = "dirpa"
 authors = [
     { name = "Joana Reuss", email = "joana.reuss@tum.de" },
 ]
