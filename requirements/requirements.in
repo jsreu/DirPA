@@ -4,7 +4,7 @@ matplotlib
 mlflow==2.2.2
 optuna
 pydantic
-torch==2.0.0 # Updating this might require changes to the Cuda Version in the Makefile as well
+torch>=2.0
 torchmetrics
 typer[all]
 eurocropsml

@@ -1,87 +1,44 @@
-.PHONY: help requirements install format lint test coverage
+.PHONY: help requirements install format lint test coverage docs
 
+ifndef VIRTUAL_ENV
+ifdef CONDA_PREFIX
+$(warning "For better compatibility, consider using a plain Python venv instead of Conda")
+VIRTUAL_ENV := $(CONDA_PREFIX)
+else
+$(error "This Makefile needs to be run inside a virtual environment")
+endif
+endif
 
 SHELL := /bin/bash
 PLATFORM := $(shell \
-  if [[ -n $$(command -v nvidia-smi && nvidia-smi --list-gpus) ]]; then echo gpu; \
-  elif [[ $$(uname -s) == Darwin ]]; then echo osx; \
+  if [[ -n $$(command -v nvidia-smi && nvidia-smi --list-gpus) ]]; then echo cu118; \
   else echo cpu; \
   fi)
 
-PIP_COMPILE_ARGS ?=
-
 help:
 	@echo "Available commands:"
-	@echo "requirements       compile all requirements."
-	@echo "install            install dev requirements for CPU only."
+	@echo "install            install dev requirements."
 	@echo "format             format code."
 	@echo "lint               run linters."
 	@echo "test               run unit tests."
 	@echo "coverage           build coverage report."
 
-requirements:
-	pip install -q --upgrade pip-tools
-	pip-compile -q ${PIP_COMPILE_ARGS} requirements/requirements.in \
-	  --extra-index-url https://download.pytorch.org/whl/cpu \
-	  --output-file requirements/requirements-cpu.txt \
-	  --strip-extras \
-	  --resolver=backtracking
-	pip-compile -q ${PIP_COMPILE_ARGS} requirements/requirements.in \
-	  --extra-index-url https://download.pytorch.org/whl/cu117 \
-	  --output-file requirements/requirements-gpu.txt \
-	  --strip-extras \
-	  --resolver=backtracking
-	pip-compile -q ${PIP_COMPILE_ARGS} requirements/requirements.in \
-	  --output-file requirements/requirements-osx.txt \
-	  --strip-extras \
-	  --resolver=backtracking
-	pip-compile -q ${PIP_COMPILE_ARGS} requirements/requirements-ci.in \
-	  --strip-extras \
-	  --resolver=backtracking
-	pip-compile -q ${PIP_COMPILE_ARGS} requirements/requirements-dev.in \
-	  --strip-extras \
-	  --resolver=backtracking
+$(VIRTUAL_ENV)/timestamp: requirements/*.in
+	@touch $(VIRTUAL_ENV)/timestamp
 
+install: $(VIRTUAL_ENV)/timestamp
+	@echo "Installing Python dependencies..."
+	python -m pip install -q --upgrade pip wheel 
+	pip install -q --extra-index-url https://download.pytorch.org/whl/$(PLATFORM) -e '.[dev]'
 
-.venv_timestamp: requirements/*.txt
-	pip install -q --upgrade pip-tools
-ifdef GITLAB_CI
-	pip-sync -q \
-	  requirements/requirements-cpu.txt \
-	  requirements/requirements-ci.txt
-else
-	pip-sync -q \
-	  requirements/requirements-${PLATFORM}.txt \
-	  requirements/requirements-ci.txt \
-	  requirements/requirements-dev.txt
-endif
-ifneq ($(wildcard requirements/requirements-extra.txt),)
-	pip install -q -r requirements/requirements-extra.txt
-endif
-	pip install -q -e .
-	touch .venv_timestamp
+format: install
+	tox run -e format
 
-install: .venv_timestamp
-
-# format: install
-# 	isort dirpa tests
-# 	black dirpa tests
-
-# mypy: install
-# 	mypy dirpa tests
-
-# flake8: install
-# 	flake8 dirpa tests
-
-lint: mypy flake8
+lint: install
+	tox run -e lint
 
 test: install
-	pytest -v
-
-integration-test: install
-	pytest -v -m integration
+	tox run -f test
 
 coverage: install
-	coverage run --source dirpa -m pytest -v --junit-xml=report.xml
-	coverage report
-	coverage xml
+	tox run -e coverage

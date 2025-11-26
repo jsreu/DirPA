@@ -1,5 +1,108 @@
+[build-system]
+requires = [
+    "hatchling",
+    "hatch-vcs",
+    "hatch-fancy-pypi-readme>=23.2.0",
+    "hatch-requirements-txt",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "eurocropsssl"
+authors = [
+    { name = "Joana Reuss", email = "joana.reuss@tum.de" },
+]
+maintainers = [
+    { name = "Joana Reuss", email = "joana.reuss@tum.de" },
+]
+license = "MIT"
+description = "Meta-Learning on EuroCropsML."
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+dynamic = ["version", "readme", "dependencies", "optional-dependencies"]
+
+[project.urls]
+GitHub = "https://github.com/jsreu/DirPA"
+
+[project.scripts]
+dirpa-cli = "dirpa.cli:cli"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+[tool.hatch.metadata.hooks.requirements_txt]
+files = ["requirements/requirements.in"]
+
+[tool.hatch.metadata.hooks.requirements_txt.optional-dependencies]
+tests = ["requirements/requirements-tests.in"]
+dev = [
+    "requirements/requirements-tests.in",
+    "requirements/requirements-dev.in",
+]
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+#start-after = "<!-- teaser-begin -->"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# make relative image links absolute
+pattern = '!\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '![\g<1>](https://raw.githubusercontent.com/jsreu/DirPA/main/\g<2>)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# make relative non-image links absolute
+pattern = '(?<!!)\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\g<1>](https://github.com/jsreu/DirPA/tree/main/\g<2>)'
+
 [tool.black]
 target-version = ['py310']
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "D", "A", "N", "B", "SIM", "C4", "TID", "NPY201"]
+ignore = [
+    "E741", # Ambiguous variable name
+    "D213", # Multi-line docstring summary should start at the second line
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
+    "D202", # Blank lines after docstring
+    "D203", # 1 blank line required before class docstring
+    "D401", # First line should be in imperative mood; try rephrasing
+    "D406", # Section name should end with a newline
+    "D407", # Missing dashed underline after section
+    "D106", # Missing docstring in public nested class
+    "B006", # Do not use mutable data structures for argument defaults
+    "B008", # Do not perform function calls in argument defaults
+    "B905", # `zip()` without an explicit `strict=` parameter
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["D", "E402"]
+"__init__.py" = ["D"]
+"notebooks/*.py" = [
+    "D",    # Make docstrings entirely optional
+    "E402", # Module level import not at top of file
+    "SIM115", # Use context handler for opening files
+    "I", # Allow unordered imports
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.isort]
 profile = "black"
@@ -15,5 +118,28 @@ warn_return_any = true
 warn_unreachable = true
 
 [tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
 testpaths = "tests"
+filterwarnings = ["once::Warning"]
 
+[tool.coverage.run]
+parallel = true
+branch = true
+source_pkgs = ["dirpa"]
+
+[tool.coverage.paths]
+source = ["dirpa", ".tox/py*/**/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.interrogate]
+omit-covered-files = true
+verbose = 2
+fail-under = 100
+whitelist-regex = ["test_.*"]
+
+[tool.check-wheel-contents]
+toplevel = ["dirpa"]

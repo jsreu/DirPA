@@ -1,9 +1,0 @@
--c requirements-cpu.txt
-
-black
-flake8
-isort
-mypy
-pytest
-pytest-cov
-pytest-mock
