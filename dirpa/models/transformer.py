@@ -26,7 +26,7 @@ class TransformerBackbone(nn.Module):
         self,
         in_channels: int,
         d_model: int,
-        encoder_layer: nn.Module,
+        encoder_layer: nn.TransformerEncoderLayer,
         num_layers: int,
         pos_enc_len: int,
         t: int = 1000,

@@ -7,11 +7,7 @@ import torch
 @pytest.fixture(
     params=[
         None,
-        {
-            "dates": torch.cat(
-                [torch.arange(0, 365, dtype=torch.long).unsqueeze(0)] * 16
-            )
-        },
+        {"dates": torch.cat([torch.arange(0, 365, dtype=torch.long).unsqueeze(0)] * 16)},
     ],
     ids=["without dates", "with dates"],
 )

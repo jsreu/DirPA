@@ -24,7 +24,7 @@ class Settings(BaseSettings):
         Path("experiments"), validation_alias="EUROCROPS_DIRPA_EXPERIMENT_DIR"
     )
     mlflow_uri: str = Field(
-        "https://mlflow-serving-p3wmbrn7yq-ey.a.run.app/",
+        "file:./mlruns",  # Local file storage by default
         validation_alias="EUROCROPS_DIRPA_MLFLOW_URI",
     )
     disable_cudnn: bool = Field(False, validation_alias="EUROCROPS_DIRPA_DISABLE_CUDNN")

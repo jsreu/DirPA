@@ -1,4 +1,4 @@
-from eurocropsmeta.experiment.utils import recursive_update
+from dirpa.experiment.utils import recursive_update
 
 
 def test_recursive_update() -> None:

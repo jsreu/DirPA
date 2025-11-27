@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 import torch
-from eurocropsmeta.models.transformer import TransformerConfig, TransformerModelBuilder
 from eurocropsml.dataset.base import DataItem
+
+from dirpa.models.transformer import TransformerConfig, TransformerModelBuilder
 
 
 @pytest.fixture

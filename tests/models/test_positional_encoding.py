@@ -3,8 +3,9 @@ import math
 import numpy as np
 import pytest
 import torch
-from eurocropsmeta.models.positional_encoding import PositionalEncoding
 from eurocropsml.dataset.base import DataItem
+
+from dirpa.models.positional_encoding import PositionalEncoding
 
 
 @pytest.fixture
@@ -12,9 +13,7 @@ def positional_encodings_zero_ones() -> tuple[list, list]:
     timesteps = torch.arange(366).unsqueeze(1)
     # Calculate the positional encoding p
     p = torch.zeros(366, 128)
-    div_term = torch.exp(
-        torch.arange(0, 128, 2).float() * (-math.log(float(1000)) / 128)
-    )
+    div_term = torch.exp(torch.arange(0, 128, 2).float() * (-math.log(float(1000)) / 128))
     p[:, 0::2] = torch.sin(timesteps * div_term)
     p[:, 1::2] = torch.cos(timesteps * div_term)
 
@@ -53,9 +52,8 @@ def test_data_item_padded() -> DataItem:
 @pytest.fixture
 def test_data_item() -> DataItem:
     data = np.ones((100, 13))
-    data = np.concatenate(
-        (data, -1 * np.ones((10, 13))), axis=0
-    )  # padding for batching
+    # padding for batching
+    data = np.concatenate((data, -1 * np.ones((10, 13))), axis=0)
     tensor_data = torch.tensor(data, dtype=torch.float)
     random_days = np.random.choice(np.arange(366), size=100, replace=False)
     sorted_days = np.sort(random_days)

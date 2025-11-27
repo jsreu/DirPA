@@ -3,13 +3,14 @@ from typing import Any, Mapping, cast
 from unittest.mock import MagicMock
 
 import pytest
-from eurocropsmeta.experiment.base import ExperimentConfig, TunedExperiment
-from eurocropsmeta.experiment.utils import TuningConfig
-from eurocropsmeta.models.base import ModelConfig
-from eurocropsmeta.train.callback import TrainCallback
-from eurocropsmeta.train.utils import ScalarMetric
-from eurocropsmeta.utils import BaseConfig
 from pytest_mock import MockerFixture
+
+from dirpa.experiment.base import ExperimentConfig, TunedExperiment
+from dirpa.experiment.utils import TuningConfig
+from dirpa.models.base import ModelConfig
+from dirpa.train.callback import TrainCallback
+from dirpa.train.utils import ScalarMetric
+from dirpa.utils import BaseConfig
 
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def experiment_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def mlflow_logger_mock(mocker: MockerFixture) -> MagicMock:
     logger_mock: MagicMock = mocker.MagicMock()
-    mocker.patch("eurocropsmeta.experiment.base.MLFlowLogger", return_value=logger_mock)
+    mocker.patch("dirpa.experiment.base.MLFlowLogger", return_value=logger_mock)
     return logger_mock
 
 
@@ -105,8 +106,6 @@ def mock_experiment(
         validate_every=1,
         train_config=MockTrainConfig(),
     )
-    experiment = MockExperiment(
-        config, model_config=model_config, experiment_dir=experiment_dir
-    )
+    experiment = MockExperiment(config, model_config=model_config, experiment_dir=experiment_dir)
 
     return experiment

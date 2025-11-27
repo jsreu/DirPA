@@ -5,20 +5,21 @@ from typing import Any, Literal, Type
 from unittest.mock import MagicMock
 
 import pytest
-from eurocropsmeta.experiment.cli import (
+from omegaconf import OmegaConf
+from pydantic import BaseModel
+from typer.testing import CliRunner, Typer
+
+from dirpa.experiment.cli import (
     BuilderT,
     ConfigT,
     build_experiment_app,
     eurocrops_app,
 )
-from eurocropsmeta.experiment.eurocrops.config import EuroCropsTransferConfig
-from eurocropsmeta.experiment.transfer import (
+from dirpa.experiment.eurocrops.config import EuroCropsTransferConfig
+from dirpa.experiment.transfer import (
     TransferExperiment,
     TransferExperimentBuilder,
 )
-from omegaconf import OmegaConf
-from pydantic import BaseModel
-from typer.testing import CliRunner, Typer
 
 
 class MockConfig(BaseModel):
@@ -28,7 +29,7 @@ class MockConfig(BaseModel):
 
 @pytest.fixture
 def runner() -> CliRunner:
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 @pytest.fixture
@@ -41,9 +42,7 @@ def config(monkeypatch: Any, tmp_path: Path) -> MockConfig:
     with open(config_path, "w") as f:
         f.write(OmegaConf.to_yaml(config.model_dump()))
 
-    monkeypatch.setenv(
-        "EUROCROPS_META_LEARNING_EXPERIMENT_DIR", str(experiment_path.absolute())
-    )
+    monkeypatch.setenv("EUROCROPS_DIRPA_EXPERIMENT_DIR", str(experiment_path.absolute()))
     return config
 
 
@@ -59,9 +58,7 @@ def builder_class(experiment_mock: MagicMock) -> Type[BuilderT]:
             super().__init__(config)
             pass
 
-        def build_experiment(
-            self, mode: Literal["pretrain", "finetune"]
-        ) -> TransferExperiment:
+        def build_experiment(self, mode: Literal["pretrain", "finetune"]) -> TransferExperiment:
             return experiment_mock
 
     return MockBuilder  # type: ignore[return-value]
@@ -82,9 +79,7 @@ def test_print_config(app: Typer, runner: CliRunner, config: MockConfig) -> None
     assert result.stdout.strip() == OmegaConf.to_yaml(config.model_dump()).strip()
 
 
-def test_print_config_overrides(
-    app: Typer, runner: CliRunner, config: MockConfig
-) -> None:
+def test_print_config_overrides(app: Typer, runner: CliRunner, config: MockConfig) -> None:
     result = runner.invoke(app, ["config", "value=2"], catch_exceptions=False)
     config.value = 2
     assert result.exit_code == 0
@@ -98,9 +93,7 @@ def test_pretraining(app: Typer, runner: CliRunner, experiment_mock: MagicMock) 
     experiment_mock.run_pretraining.assert_called_once()
 
 
-def test_pretrain_tuning(
-    app: Typer, runner: CliRunner, experiment_mock: MagicMock
-) -> None:
+def test_pretrain_tuning(app: Typer, runner: CliRunner, experiment_mock: MagicMock) -> None:
     result = runner.invoke(app, ["pretrain-tuning"], catch_exceptions=False)
     assert result.exit_code == 0
 
@@ -143,22 +136,14 @@ def test_finetune_tuning(
 EUROCROPS_OVERRIDES = [
     [],
     ["model=transformer_small"],
-    ["model=transformer_big"],
     ["pretrain=pretrain"],
-    ["pretrain=meta_20_5"],
-    ["pretrain=meta_10_10.yaml"],
-    ["pretrain=meta_10_1.yaml"],
-    ["pretrain=meta_4_10.yaml"],
-    ["pretrain=meta_4_1.yaml"],
-    ["finetune=head"],
-    ["finetune=headbackbonediff"],
-    ["finetune=headbackbonesame"],
-    ["pretrain=meta_20_5", "pretrain.meta_config.name=MAML"],
+    ["finetune=ce/head"],
+    ["finetune=fcl/headbackbonediff"],
+    ["finetune=fcl/headbackbonesame"],
 ]
 
 EXPERIMENT_PARAMS = [
-    (eurocrops_app, EuroCropsTransferConfig, overrides)
-    for overrides in EUROCROPS_OVERRIDES
+    (eurocrops_app, EuroCropsTransferConfig, overrides) for overrides in EUROCROPS_OVERRIDES
 ]
 
 

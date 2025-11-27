@@ -86,14 +86,19 @@ ignore = [
     "B006", # Do not use mutable data structures for argument defaults
     "B008", # Do not perform function calls in argument defaults
     "B905", # `zip()` without an explicit `strict=` parameter
+    "D100", # Missing docstring in public module
+    "D102", # Missing docstring in method
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"test_*.py" = ["D", "E402"]
-"__init__.py" = ["D"]
+"tests/**/*.py" = ["D", "E402", "B011", "N806"]
+"__init__.py" = ["D", "F401"]
 "notebooks/*.py" = [
     "D",    # Make docstrings entirely optional
     "E402", # Module level import not at top of file

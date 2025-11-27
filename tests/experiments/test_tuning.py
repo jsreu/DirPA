@@ -4,9 +4,10 @@ from typing import Any
 
 import optuna
 import pytest
-from eurocropsmeta.experiment.runs import RunResult
-from eurocropsmeta.experiment.tuning import run_tuning
-from eurocropsmeta.experiment.utils import TuningConfig
+
+from dirpa.experiment.runs import RunResult
+from dirpa.experiment.tuning import run_tuning
+from dirpa.experiment.utils import TuningConfig
 
 KEY_METRIC = "Acc"
 
@@ -57,13 +58,9 @@ def test_run_tuning(runs_dir: Path, run_name: str | None) -> None:
     run_results = list(runs_dir.glob("*.json"))
     assert len(run_results) == len(tuning_params.categoricals["value"])
 
-    results = [
-        RunResult(**json.loads(result_path.read_text())) for result_path in run_results
-    ]
+    results = [RunResult(**json.loads(result_path.read_text())) for result_path in run_results]
     assert {result.params["value"] for result in results} == set(
         tuning_params.categoricals["value"]
     )
-    assert {result.metric_value for result in results} == set(
-        tuning_params.categoricals["value"]
-    )
+    assert {result.metric_value for result in results} == set(tuning_params.categoricals["value"])
     assert all(result.run_name.startswith(study_name) for result in results)

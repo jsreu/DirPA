@@ -1,5 +1,6 @@
 import pytest
-from eurocropsmeta.utils import BaseConfig
+
+from dirpa.utils import BaseConfig
 
 
 class ExampleConfig(BaseConfig):

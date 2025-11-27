@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
-from eurocropsmeta.experiment.runs import RunResult, get_run_results
-from eurocropsmeta.models.base import ModelConfig
+
+from dirpa.experiment.runs import RunResult, get_run_results
+from dirpa.models.base import ModelConfig
 
 
 @pytest.fixture()

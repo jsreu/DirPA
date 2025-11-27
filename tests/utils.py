@@ -3,13 +3,10 @@ from typing import cast
 
 import torch
 import torch.nn as nn
-from eurocropsmeta.dataset.task import (
-    ClassificationTaskDataset,
-    WrapClassificationTaskDataset,
-)
-from eurocropsmeta.models.base import ModelBuilder
-from eurocropsml.dataset.base import DataItem, LabelledData, TransformDataset
+from eurocropsml.dataset.base import DataItem, LabelledData
 from torch.utils.data import Dataset
+
+from dirpa.models.base import ModelBuilder
 
 
 class SineDataset(Dataset[LabelledData]):
@@ -23,122 +20,6 @@ class SineDataset(Dataset[LabelledData]):
     def __init__(self, phase: float, size: int = 100):
         self.data = math.pi * torch.rand((size, 1))
         self.targets = torch.sin(self.data + phase)
-
-    def __getitem__(self, ix: int) -> LabelledData:
-        return LabelledData(DataItem(self.data[ix]), self.targets[ix])
-
-    def __len__(self) -> int:
-        return self.data.size(0)
-
-
-def interval_tasks(
-    total_classes: int = 20,
-    num_classes: int = 3,
-    train_size: int = 5,
-    test_size: int = 3,
-    offset: float = 0.0,
-    sample: bool = False,
-) -> ClassificationTaskDataset:
-    """Construct classification task set based on interval datasets.
-
-    Args:
-        total_classes: Total number of classes in dataset.
-        num_classes: Number of classes in each task.
-        train_size: Datapoints per class in train set.
-        test_size: Datapoints per class in test set.
-        offset: Offset to add to interval.
-        sample: Whether to sample tasks randomly.
-
-    Returns:
-        Toy classification task dataset.
-    """
-
-    intervals = [
-        (offset + 100 * k / total_classes, offset + 100 * (k + 1) / total_classes)
-        for k in range(total_classes)
-    ]
-    intervals = sorted(intervals)
-    datasets = {
-        n: TransformDataset(
-            IntervalDataset(interval, label=n, size=train_size + test_size)
-        )
-        for n, interval in enumerate(intervals)
-    }
-
-    return ClassificationTaskDataset(
-        datasets,
-        num_classes=num_classes,
-        train_samples_per_class=train_size,
-        test_samples_per_class=test_size,
-        sample=sample,
-        loss_fn=nn.CrossEntropyLoss(),
-        metrics_list=["Acc"],
-    )
-
-
-def wrappedinterval_tasks(
-    total_sup_classes: int = 5,
-    total_classes: int = 20,
-    num_classes: int = 3,
-    train_size: int = 5,
-    test_size: int = 3,
-    offset: float = 0.0,
-    sample: bool = False,
-) -> WrapClassificationTaskDataset:
-    """Construct wrap classification task set based on interval datasets.
-
-    Args:
-        total_sup_classes: Total number of superclasses in dataset.
-        total_classes: Total number of classes in dataset.
-        num_classes: Number of classes in each task.
-        train_size: Datapoints per class in train set.
-        test_size: Datapoints per class in test set.
-        offset: Offset to add to interval.
-        sample: Whether to sample tasks randomly.
-
-    Returns:
-        Wrapped toy classification task dataset.
-    """
-    superclasses = list(range(0, total_sup_classes))
-
-    intervals = [
-        (offset + 100 * k / total_classes, offset + 100 * (k + 1) / total_classes)
-        for k in range(total_classes)
-    ]
-    intervals = sorted(intervals)
-    datasets = {
-        n: TransformDataset(
-            IntervalDataset(interval, label=n, size=train_size + test_size)
-        )
-        for n, interval in enumerate(intervals)
-    }
-
-    wrapped_dataset = {sc: datasets for sc in superclasses}
-
-    return WrapClassificationTaskDataset(
-        wrapped_dataset,
-        num_classes=num_classes,
-        train_samples_per_class=train_size,
-        test_samples_per_class=test_size,
-        sample=sample,
-        loss_fn=nn.CrossEntropyLoss(),
-        metrics_list=["Acc"],
-    )
-
-
-class IntervalDataset(Dataset[LabelledData]):
-    """Toy classification dataset containing points in given interval.
-
-    Args:
-        interval: Real interval points are sampled from.
-        label: Constant label to give targets.
-        size: Number of data points to construct.
-    """
-
-    def __init__(self, interval: tuple[float, float], label: int, size: int):
-        start, end = interval
-        self.data = start + (end - start) * torch.rand((size, 1))
-        self.targets = label * torch.ones(size, dtype=torch.long)
 
     def __getitem__(self, ix: int) -> LabelledData:
         return LabelledData(DataItem(self.data[ix]), self.targets[ix])
