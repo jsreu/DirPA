@@ -3,7 +3,7 @@ import logging
 from abc import abstractmethod
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Generic, Literal, Mapping, TypeVar, cast
+from typing import Any, Generic, Literal, Mapping, TypeVar, cast
 
 import optuna
 import torch
@@ -239,9 +239,10 @@ class TunedExperiment(Generic[ExperimentConfigT]):
     def _get_trial_runs(self, study_name: str | None, trial_id: int) -> list[RunResult]:
         runs = get_run_results(self.runs_dir, prefix="tuning")
         if study_name is not None:
-            name_filter: Callable[[RunResult], bool] = (
-                lambda run: cast(str, study_name) + f"-trial-{trial_id}" == run.run_name
-            )
+
+            def name_filter(run: RunResult) -> bool:
+                return cast(str, study_name) + f"-trial-{trial_id}" == run.run_name
+
             runs = list(filter(name_filter, runs))
         else:
             runs = [run for run in runs if run.run_name.endswith(f"trial-{trial_id}")]
@@ -294,9 +295,10 @@ class TunedExperiment(Generic[ExperimentConfigT]):
 
         # Filter out runs that don't match run name.
         if run_name is not None:
-            match_run_name: Callable[[RunResult], bool] = (
-                lambda run_result: cast(str, run_name) in run_result.run_name
-            )
+
+            def match_run_name(run_result: RunResult) -> bool:
+                return cast(str, run_name) in run_result.run_name
+
             results = list(filter(match_run_name, results))
 
         # Different model configs make runs incompatible

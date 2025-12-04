@@ -16,19 +16,18 @@ from tqdm import tqdm, trange
 from dirpa.dataset.task import Task
 from dirpa.experiment.logger import MLFlowCallback
 from dirpa.models.base import DataItem, Model
-from dirpa.utils import BaseConfig
-
-from .callback import TrainCallback
-from .dirpa import (
+from dirpa.train.callback import TrainCallback
+from dirpa.train.dirpa import (
     DirichletAlphaLearner,
     DirichletConfig,
     _sample_dirichlet_prior,
 )
-from .loss import (
+from dirpa.train.loss import (
     LossConfig,
     LossFocalConfig,
 )
-from .utils import EarlyStopping, TaskMetric
+from dirpa.train.utils import EarlyStopping, TaskMetric
+from dirpa.utils import BaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -227,8 +226,9 @@ class Trainer:
         Args:
             model: Model to adapt.
             task: Task that contains a train, validation and test dataset.
-            validate_every: Interval between validation runs, either corresponding to the
-                number of epochs (if epoch>0) or to the number of training batches (if epoch==0).
+            validate_every_step: Number of training batches between validation runs (if epoch==0).
+            validate_every_epoch: Number of epochs between validation runs (if epoch>0).
+            warmup_steps: Number of initial warmup steps.
 
         Returns:
             Adapted model

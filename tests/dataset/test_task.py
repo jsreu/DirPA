@@ -2,8 +2,7 @@ import pytest
 from eurocropsml.dataset.base import TransformDataset
 
 from dirpa.dataset.task import Task
-
-from ..utils import SineDataset
+from tests.utils import SineDataset
 
 
 def test_task_dl() -> None:

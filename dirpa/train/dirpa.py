@@ -74,7 +74,7 @@ class DirichletConfig(BaseModel):
 
 
 def _sample_dirichlet_prior(
-    C: int,
+    c: int,
     tau: float,
     alpha: float | None = None,
     alpha_focus: float | None = None,
@@ -87,16 +87,17 @@ def _sample_dirichlet_prior(
     """Sample symmetric pseudo-prior from Dirichlet distribution: pi ~ Dir(alpha1).
 
     Args:
-        C: Number of classes.
-        tau: Prior strength
+        c: Number of classes.
+        tau: Prior strength.
         alpha: Dirichlet concentrations.
             Scalar (symmetric Dirichlet):
                 - alpha = 1: uniform distribution on simplex
                 - alpha > 1: favouring balanced vectors
                 - alpha < 1: favoring sparse vectors
-        alpha_focus: asymmetric Dirichlet,
-        alpha_common: asymmetric Dirichlet,
-        alpha_mode:
+        alpha_focus: Start value for alpha focus (assigned to a single focus class every step)
+        alpha_common: Start value for alpha common (assigned to all other classes).
+        alpha_mode: Chooses symmetric or asymmetric Dirichlet sampling.
+        eps: Small constant to avoid log(0) when clamping Dirichlet samples.
         blend_with_uniform: Whether to convex-mix sampling with uniform distribution
             to avoid extreme shifts.
         beta: Mixing factor in [0,1]; if None and blend=True, defaults to 0.8.
@@ -112,16 +113,16 @@ def _sample_dirichlet_prior(
     if alpha_mode == "asymmetric":
         alpha_focus = cast(float, alpha_focus)
         alpha_common = cast(float, alpha_common)
-        focus_class_idx: int = random.randint(0, C - 1)
-        alpha_tensor: torch.Tensor = torch.full((C,), alpha_common)
+        focus_class_idx: int = random.randint(0, c - 1)
+        alpha_tensor: torch.Tensor = torch.full((c,), alpha_common)
         alpha_tensor[focus_class_idx] = alpha_focus
         pi = torch.distributions.Dirichlet(alpha_tensor).sample()
     else:
-        pi = torch.distributions.Dirichlet(torch.full((C,), cast(float, alpha))).sample()
+        pi = torch.distributions.Dirichlet(torch.full((c,), cast(float, alpha))).sample()
 
     if blend_with_uniform:
         beta = cast(float, beta)
-        pi = (1 - beta) * (torch.full((C,), 1.0 / C)) + beta * pi
+        pi = (1 - beta) * (torch.full((c,), 1.0 / c)) + beta * pi
         pi = pi / pi.sum()  # renormalize for numeric safety
 
     # numerical safety

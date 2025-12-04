@@ -10,10 +10,9 @@ import torch
 from optuna import Study
 from optuna.samplers import BaseSampler, GridSampler, RandomSampler, TPESampler
 
+from dirpa.experiment.runs import RunResult
 from dirpa.experiment.utils import TuningConfig
 from dirpa.settings import Settings
-
-from .runs import RunResult
 
 logger = logging.getLogger(__name__)
 

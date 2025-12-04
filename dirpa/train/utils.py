@@ -1,4 +1,4 @@
-"""Training utilities"""
+"""Training utilities."""
 
 from __future__ import annotations
 
@@ -160,7 +160,7 @@ class ScalarMetric(TaskMetric):
                 raise ValueError(
                     "Could not instantiate a torchmetrics.Metric or "
                     f"torchmetrics.classification.Metric with name {metric_name}."
-                )
+                ) from None
         return metric
 
 
@@ -445,7 +445,7 @@ class EarlyStopping:
     ):
         self.patience = patience if patience else 5
         self.counter = 0
-        self.best_score = -np.Inf
+        self.best_score = -np.inf
         self.early_stop = False
         self.delta = delta
         self.warmup_steps = warmup_steps
@@ -455,6 +455,7 @@ class EarlyStopping:
 
         Args:
             val_loss: Current validation loss to evaluate.
+            step: Current validation step.
             model: Current model to save.
 
         Returns:
@@ -465,7 +466,7 @@ class EarlyStopping:
             return False
         score = -val_loss
 
-        if self.best_score == -np.Inf:
+        if self.best_score == -np.inf:
             self.best_score = score
         elif score < self.best_score + self.delta:
             self.counter += 1
