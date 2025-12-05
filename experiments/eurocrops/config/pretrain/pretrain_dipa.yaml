@@ -35,3 +35,5 @@ train_config:
     blend_with_uniform: false
     beta: 0.8  
     alpha_lr: 0.0
+  loss_config:
+    name: "CE"

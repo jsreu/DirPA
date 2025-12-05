@@ -25,3 +25,5 @@ train_config:
   cosine_annealing: 0
   stop_early: True
   patience: 15
+  loss_config:
+      name: "CE"
