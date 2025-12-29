@@ -1,13 +1,10 @@
 import logging
 from typing import Any
 
-from eurocropsml.dataset.config import (
-    EuroCropsDatasetConfig,
-    EuroCropsDatasetPreprocessConfig,
-    EuroCropsSplit,
-)
+from eurocropsml.dataset.config import EuroCropsDatasetPreprocessConfig
 from pydantic import BaseModel
 
+from dirpa.dataset.eurocrops.config import EuroCropsDatasetConfig, EuroCropsSplit
 from dirpa.experiment.base import TrainExperimentConfig
 from dirpa.models.transformer import TransformerConfig
 
