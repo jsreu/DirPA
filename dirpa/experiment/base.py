@@ -184,7 +184,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
 
             result_path = self.runs_dir.joinpath(f"{run_result.run_name}.json")
             with open(result_path, "w") as f:
-                json.dump(run_result, f)
+                json.dump(run_result.model_dump(), f, indent=4)
 
         return run_result
 
