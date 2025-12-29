@@ -50,6 +50,7 @@ class EuroCropsExperimentBuilder(TransferExperimentBuilder[EuroCropsTransferConf
                         preprocess_config=self.config.preprocess,
                         dataset_config=self.dataset_config,
                         max_samples=num,
+                        downsample_classes=self.dataset_config.downsample_classes,
                     ),
                     self.config.finetune,
                 )
@@ -72,6 +73,7 @@ class EuroCropsExperimentBuilder(TransferExperimentBuilder[EuroCropsTransferConf
                 split_config=self.config.split,
                 preprocess_config=self.config.preprocess,
                 dataset_config=self.dataset_config,
+                downsample_classes=self.dataset_config.downsample_classes,
             )
             return build_pretrain_experiment(
                 pretrain_experiment_config=self.config.pretrain,
