@@ -14,6 +14,7 @@ from eurocropsml.dataset.config import (
 from eurocropsml.dataset.dataset import EuroCropsDataset
 from eurocropsml.dataset.utils import MMapStore
 
+from dirpa.dataset.eurocrops.utils import _downsample
 from dirpa.dataset.task import Task
 from dirpa.train.utils import get_metrics
 
@@ -28,6 +29,7 @@ def load_dataset_split(
     dataset_config: EuroCropsDatasetConfig,
     max_samples: int | str,
     class_ids_to_names: dict[str, str] | None,
+    downsample_classes: dict[int, float] | None = None,
 ) -> Task:
     """Load EuroCrops data.
 
@@ -40,6 +42,7 @@ def load_dataset_split(
         loss_fn: Loss function used to calculate the model's loss.
         max_samples: Maximum number of samples per class within finetuning dataset.
         class_ids_to_names: Optional mapping from class identifiers to readable class names.
+        downsample_classes: Used for downsampling or fully removing classes from the training.
 
     Returns:
         Task containing train, validation, and optionally test dataset.
@@ -49,13 +52,6 @@ def load_dataset_split(
         FileNotFoundError: If train and/or validation set do not exist.
         FileNotFoundError: If finetuning mode and test set does not exist.
     """
-
-    class_list = list(classes)  # ensure matching ordering between names and encoding
-    if class_ids_to_names is not None:  # use readable class names if available
-        class_names = [class_ids_to_names[str(c)] for c in class_list]
-    else:  # use class identifiers as names otherwise
-        class_names = [str(c) for c in class_list]
-    encoding = {int(c): i for i, c in enumerate(class_list)}
 
     if mode == "finetuning":
         split_file = split_dir.joinpath(
@@ -91,17 +87,35 @@ def load_dataset_split(
 
     try:
         train = data_satellite_split["train"]
-        train_list = reduce(add, train.values())
         val = data_satellite_split["val"]
+
+        if downsample_classes is not None:
+            for drop_class, drop_prob in downsample_classes.items():
+                train = _downsample(train, drop_class, drop_prob, satellites)
+                val = _downsample(val, drop_class, drop_prob, satellites)
+                if drop_prob == 1.0:
+                    classes.discard(drop_class)
+        train_list = reduce(add, train.values())
         val_list = reduce(add, val.values())
         if mode == "finetuning":
             test = data_satellite_split["test"]
+            if downsample_classes is not None:
+                for drop_class, drop_prob in downsample_classes.items():
+                    test = _downsample(test, drop_class, drop_prob, satellites)
+
             test_list = [item for sublist in test.values() for item in sublist]
         else:
             test = None
             test_list = None
     except KeyError as err:
         raise FileNotFoundError() from err
+
+    class_list = list(classes)  # ensure matching ordering between names and encoding
+    if class_ids_to_names is not None:  # use readable class names if available
+        class_names = [class_ids_to_names[str(c)] for c in class_list]
+    else:  # use class identifiers as names otherwise
+        class_names = [str(c) for c in class_list]
+    encoding = {int(c): i for i, c in enumerate(class_list)}
 
     logger.info(f"Computing {mode} task.")
     mmap_store = MMapStore(train_list + val_list + (test_list if test_list is not None else []))
@@ -114,16 +128,22 @@ def load_dataset_split(
     # for class weights
     train_classes = [int(filepath.stem.split("_")[-1]) for filepath in train_list]
     train_class_counts = Counter(train_classes)
+    total_samples_counts = len(train_classes)
 
     # inverse frequency
-    class_weights = {
-        encoding[class_id]: 1.0 / count for class_id, count in train_class_counts.items()
+    class_frequencies = {
+        encoding[class_id]: count / total_samples_counts
+        for class_id, count in train_class_counts.items()
+    }
+
+    inverse_frequencies = {
+        class_id: 1.0 / frequency for class_id, frequency in class_frequencies.items()
     }
 
     task = Task(
         task_id="eurocrops",
         encoding=encoding,
-        class_weights=class_weights,
+        class_weights=inverse_frequencies,
         train_set=TransformDataset(
             EuroCropsDataset(
                 train,
