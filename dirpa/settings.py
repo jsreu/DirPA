@@ -18,8 +18,6 @@ class Settings(BaseSettings):
         seed: Random seed.
     """
 
-    # data_dir: Path = Field(Path("data"), validation_alias="EUROCROPS_DIRPA_DATA_DIR")
-
     experiment_dir: Path = Field(
         Path("experiments"), validation_alias="EUROCROPS_DIRPA_EXPERIMENT_DIR"
     )
