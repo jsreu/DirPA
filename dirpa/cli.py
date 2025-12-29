@@ -4,6 +4,7 @@ import eurocropsml.settings
 import torch.multiprocessing
 import typer
 
+from dirpa.dataset.cli import datasets_app
 from dirpa.experiment.cli import experiments_app
 from dirpa.settings import ROOT_DIR
 
@@ -29,6 +30,7 @@ def logging_setup() -> None:
 
 
 cli.add_typer(experiments_app)
+cli.add_typer(datasets_app)
 
 
 if __name__ == "__main__":
