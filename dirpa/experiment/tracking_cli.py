@@ -184,7 +184,7 @@ def _list_experiments_as_dataframe(view_type: ViewType, filter_string: str | Non
     experiment_list = mlflow.search_experiments(
         view_type=view_type, # type: ignore[arg-type]
         filter_string=filter_string
-        ) 
+        )
     df = pd.DataFrame([vars(exp) for exp in experiment_list], columns=column_names.keys())
     df.rename(columns=column_names, inplace=True)
     df["creation_time"] = pd.to_datetime(df["creation_time"], unit="ms", origin="unix")

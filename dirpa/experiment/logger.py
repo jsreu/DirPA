@@ -60,7 +60,7 @@ class MLFlowLogger:
     @staticmethod
     def get_artifact_uri(artifact_path: str) -> str:
         """Get the full artifact uri for the current run and artifact path."""
-        return mlflow.get_artifact_uri(artifact_path) 
+        return mlflow.get_artifact_uri(artifact_path)
 
     @staticmethod
     def log_artifact(artifact_path: str) -> None:
