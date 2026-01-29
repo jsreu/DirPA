@@ -1,4 +1,4 @@
-base_name: "AT_DE_vs_LV"
+base_name: "AT_DE_vs_LV_stratified"
 data_dir: "preprocess"
 random_seed: 42
 num_samples:
@@ -15,6 +15,8 @@ num_samples:
   test: "all"
 
 class_downsample: [null, 10000] #[3302000000, 0.0]
+
+finetune_split_mode: "stratified"
 
 satellite:
   - "S2"
