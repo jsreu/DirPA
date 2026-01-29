@@ -39,6 +39,7 @@ class DirichletConfig(BaseModel):
 
     enabled: bool = False
     alpha_mode: Literal["symmetric", "asymmetric"] = "symmetric"
+    warmup_epochs: int = 0
     alpha: float | None = None  # spikiness of Dir(C, alpha)
     alpha_focus: float | None = None
     alpha_common: float | None = None
@@ -114,15 +115,17 @@ def _sample_dirichlet_prior(
         alpha_focus = cast(float, alpha_focus)
         alpha_common = cast(float, alpha_common)
         focus_class_idx: int = random.randint(0, c - 1)
-        alpha_tensor: torch.Tensor = torch.full((c,), alpha_common)
+        alpha_tensor: torch.Tensor = torch.full((c,), float(alpha_common), dtype=torch.float32)
         alpha_tensor[focus_class_idx] = alpha_focus
         pi = torch.distributions.Dirichlet(alpha_tensor).sample()
     else:
-        pi = torch.distributions.Dirichlet(torch.full((c,), cast(float, alpha))).sample()
+        pi = torch.distributions.Dirichlet(
+            torch.full((c,), float(alpha), dtype=torch.float32)
+        ).sample()
 
     if blend_with_uniform:
         beta = cast(float, beta)
-        pi = (1 - beta) * (torch.full((c,), 1.0 / c)) + beta * pi
+        pi = (1 - beta) * (torch.full((c,), 1.0 / c, dtype=torch.float32)) + beta * pi
         pi = pi / pi.sum()  # renormalize for numeric safety
 
     # numerical safety
