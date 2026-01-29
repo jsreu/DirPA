@@ -26,7 +26,7 @@ class EuroCropsSplit(BaseModel):
 
     class_downsample: tuple[int | None, float | None] | None = None
 
-    finetune_split_mode: Literal["realistic", "random"] = "random"
+    finetune_split_mode: Literal["stratified", "random"] = "random"
 
     satellite: list[Literal["S1", "S2"]] = ["S2"]
 
