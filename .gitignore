@@ -18,6 +18,7 @@ data/*/mmap_data
 !*.ini
 !*.sh
 !*.yml
+!*.yaml
 
 !Makefile
 !.flake8
