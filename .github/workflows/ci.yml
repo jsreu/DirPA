@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+    tags: ["*"]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: formatting and linting
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: prepare python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: run linting/formatting
+        run: |
+          python -Im pip install tox tox-ignore-env-name-mismatch
+          python -Im tox run -e format,lint
+
+  # ensure everything required passed
+  required-checks-pass:
+    if: always()
+
+    needs:
+      - lint
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: check CI success or failure
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}

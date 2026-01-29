@@ -1,0 +1,40 @@
+defaults:
+  - finetune_base
+
+name: "${base_name} - finetune head&backbone same"
+multivariate_tpe: false
+key_metric: "Acc"
+tuning_params:
+  floats:
+    lr:
+      log: True
+      low: 1.0e-6
+      high: 1.0e-2
+  ints: {}
+  categoricals:
+    dirichlet_config.alpha_focus: [2.0, 5.0, 10.0]
+    dirichlet_config.alpha_common: [0.5, 1.0, 2.0]
+    dirichlet_config.tau: [0.3,0.2,0.1,0.05]
+
+train_config:
+  dataloader_num_workers: 0
+  prefetch_factor: 2
+  optimizer: "AdamW"
+  lr: 1e-5
+  batch_size: 128
+  epochs: 200
+  patience: 15
+  stop_early: True
+  loss_config: 
+    name: "CE"          # cross-entropy
+  dirichlet_config:
+    enabled: true
+    alpha_mode: 'asymmetric'
+    alpha: 0.7
+    alpha_focus: 2.0
+    alpha_common: 0.5
+    tau: 1.0
+    blend_with_uniform: false
+    beta: 0.8
+
+
