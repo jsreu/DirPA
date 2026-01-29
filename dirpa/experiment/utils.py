@@ -64,13 +64,26 @@ def get_model_builder(model_config: ModelConfig) -> ModelBuilder:
 BaseConfigT = TypeVar("BaseConfigT", bound=BaseConfig)
 
 
+def _set_nested_attr(obj: Any, attr_path: str, value: float | bool) -> None:
+    """Set nested attribute via dot notation (e.g., 'param_config.attribute')."""
+    attrs = attr_path.split(".")
+    for attr in attrs[:-1]:
+        if hasattr(obj, attr):
+            obj = getattr(obj, attr)
+        else:
+            return  # stop if path is invalid
+    if hasattr(obj, attrs[-1]):
+        setattr(obj, attrs[-1], value)
+
+
 def overwrite_config(config: BaseConfigT, extra_params: dict[str, Any]) -> BaseConfigT:
     """Overwrite fields in config given by extra_params."""
     config = deepcopy(config)
     for name, param in extra_params.items():
         if name in config.params():
             setattr(config, name, param)
-
+        else:
+            _set_nested_attr(config, name, param)
     return config
 
 
