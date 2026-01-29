@@ -126,6 +126,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
         extra_params["seed"] = seed
         original_config = self.run_config()
         overriden_config = {}
+
         for name, cfg in original_config.items():
             overriden_config[name] = overwrite_config(cfg, extra_params)
 
@@ -201,7 +202,6 @@ class TunedExperiment(Generic[ExperimentConfigT]):
         Returns:
             Results of best tuning run.
         """
-
         if tuning_params is None:
             tuning_params = self.config.tuning_params
 
@@ -379,6 +379,7 @@ class TrainExperiment(TunedExperiment[TrainExperimentConfig]):
             validate_every_step=self.config.validate_every_step,
             validate_every_epoch=self.config.validate_every_epoch,
             warmup_steps=self.config.warmup_steps,
+            freeze_backbone_epoch=train_config.freeze_backbone_epoch,
         )
 
         if self.train_task.test_set is not None:

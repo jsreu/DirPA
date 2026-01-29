@@ -9,7 +9,7 @@ import torch.nn as nn
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 from torch.optim import SGD, Adam, AdamW, Optimizer
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm, trange
 
@@ -69,6 +69,8 @@ class TrainConfig(BaseConfig):
     dirichlet_config: DirichletConfig | None = None
     weight_decay: float = 0.0
     cosine_annealing: int = 0
+    warmup_epochs_scheduler: int = 0
+    freeze_backbone_epoch: int = 0
 
     stop_early: bool = False
     patience: int | None = None
@@ -80,8 +82,10 @@ class TrainConfig(BaseConfig):
             "optimizer": self.optimizer,
             "weight_decay": self.weight_decay,
             "cosine_annealing": self.cosine_annealing,
+            "warmup_epochs_scheduler": self.warmup_epochs_scheduler,
             "loss_config": self.loss_config,
             "dirichlet_config": self.dirichlet_config,
+            "freeze_backbone_epoch": self.freeze_backbone_epoch,
         }
         if self.head_lr is not None and self.backbone_lr is not None:
             params["backbone_lr"] = self.backbone_lr
@@ -168,11 +172,13 @@ class Trainer:
                     "params": model.backbone.parameters(),
                     "lr": backbone_lr,
                     "weight_decay": weight_decay,
+                    "name": "backbone",
                 },
                 {
                     "params": model.head.parameters(),
                     "lr": head_lr,
                     "weight_decay": weight_decay,
+                    "name": "head",
                 },
             ]
             optimizer_lr = cast(float, backbone_lr)
@@ -192,6 +198,7 @@ class Trainer:
                     "params": dirichlet_alpha_learner.parameters(),
                     "lr": alpha_lr if alpha_lr is not None else optimizer_lr,
                     "weight_decay": 0.0,
+                    "name": "alpha_learner",
                 }
             )
 
@@ -201,17 +208,61 @@ class Trainer:
         self,
         optimizer: Optimizer,
         steps_per_epoch: int,
-    ) -> tuple[CosineAnnealingWarmRestarts | None, int | None]:
-        max_num_steps = steps_per_epoch * self.config.epochs
+    ) -> tuple[SequentialLR | CosineAnnealingWarmRestarts | None, int | None]:
+
+        # if annealing is off, return None and the standard patience
         if self.config.cosine_annealing == 0:
             return None, self.config.patience
-        elif self.config.cosine_annealing == 1:
-            t_0 = max_num_steps + 1
+
+        # total_epochs here refers to the active training horizon.
+        # if called during unfreeze, self.config.epochs has been updated
+        # to (original_total - freeze_backbone_epoch).
+        total_epochs = self.config.epochs
+
+        # calculate steps for the remaining horizon
+        if self.config.warmup_epochs_scheduler > 0:
+            warmup_steps = self.config.warmup_epochs_scheduler * steps_per_epoch
+
+            # ensure we don't have more warmup epochs than total remaining epochs
+            actual_warmup_steps = min(warmup_steps, total_epochs * steps_per_epoch)
+
+            scheduler_epochs = max(1, total_epochs - self.config.warmup_epochs_scheduler)
+            max_num_steps = steps_per_epoch * scheduler_epochs
+
+            warmup_scheduler = LinearLR(
+                optimizer,
+                start_factor=0.1,
+                end_factor=1.0,
+                total_iters=actual_warmup_steps,
+            )
         else:
-            t_0 = math.floor(max_num_steps / self.config.cosine_annealing)
-        return CosineAnnealingWarmRestarts(optimizer, T_0=t_0, eta_min=0.0), math.floor(
-            self.config.epochs / self.config.cosine_annealing
+            max_num_steps = steps_per_epoch * total_epochs
+            warmup_steps = 0
+
+        # calculate T_0 (first cycle length) based on the remaining steps
+        if self.config.cosine_annealing == 1:
+            t_0 = max_num_steps
+        else:
+            t_0 = max_num_steps // self.config.cosine_annealing
+
+        cosine_scheduler = CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=max(1, t_0),  # avoid division by zero if steps are very low
+            T_mult=2 if self.config.cosine_annealing > 1 else 1,
+            eta_min=1e-7,
         )
+
+        if warmup_steps > 0:
+            return (
+                SequentialLR(
+                    optimizer,
+                    schedulers=[warmup_scheduler, cosine_scheduler],
+                    milestones=[warmup_steps],
+                ),
+                total_epochs,
+            )
+
+        return cosine_scheduler, total_epochs
 
     def train(
         self,
@@ -220,6 +271,7 @@ class Trainer:
         validate_every_step: int = 0,
         validate_every_epoch: int = 1,
         warmup_steps: int = 0,
+        freeze_backbone_epoch: int = 0,
     ) -> Model:
         """Train model with configured optimizer and scheduling.
 
@@ -269,51 +321,72 @@ class Trainer:
                 )
             alpha_lr = cast(float, dirichlet_config.alpha_lr)
 
+        # initialize Optimizer
+        # Note: If freeze_backbone_epoch > 0, we start with backbone_lr = 0.0
         optimizer = self._build_optimizer(
             model=model,
             optimizer=self.config.optimizer,
             head_lr=self.config.head_lr,
-            backbone_lr=self.config.backbone_lr,
+            backbone_lr=0.0 if freeze_backbone_epoch > 0 else self.config.backbone_lr,
             lr=self.config.lr,
             weight_decay=self.config.weight_decay,
             dirichlet_alpha_learner=dirichlet_alpha_learner,
             alpha_lr=alpha_lr,
         )
-        scheduler, patience = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
 
-        # initialize the early_stopping object
+        # handle scheduler logic
+        # If we are freezing, the scheduler is None initially.
+        # We only build it when we unfreeze.
+        scheduler: SequentialLR | CosineAnnealingWarmRestarts | None = None
+        patience = self.config.patience
+        if freeze_backbone_epoch == 0:
+            scheduler, patience = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
+
         early_stopping: EarlyStopping | None = None
         if self.config.stop_early:
             early_stopping = EarlyStopping(patience=patience, warmup_steps=warmup_steps)
 
-        # If epoch>0 we count by epochs.
-        if self.config.epochs:
-            epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
-            step = 0
-            for epoch in epochs_bar:
-                for _, batch in enumerate(tqdm(train_dl, desc="Batches")):
-                    self._inner_step(
-                        model=model,
-                        train_batch=batch,
-                        loss_fn=loss_fn,
-                        optimizer=optimizer,
-                        scheduler=scheduler,
-                        dirichlet_alpha_learner=dirichlet_alpha_learner,
-                        step=step,
-                    )
-                    step += 1
-                    if validate_every_step != 0:
-                        validate = (step + 1) % validate_every_step == 0
-                        if validate:
-                            stopped = self._validate(model, task, early_stopping, step, val_dl)
-                            if stopped:
-                                break
-                if validate_every_epoch != 0:
-                    validate = (epoch + 1) % validate_every_epoch == 0
-                    if validate:
-                        stopped = self._validate(model, task, early_stopping, step, val_dl)
-                        if stopped:
-                            break
+        step = 0
+        epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
+
+        for epoch in epochs_bar:
+            # unfreeze backbone
+            if freeze_backbone_epoch > 0 and epoch == freeze_backbone_epoch:
+                logger.info(f"Unfreezing backbone. Initializing scheduler at epoch {epoch}")
+
+                for param_group in optimizer.param_groups:
+                    if param_group.get("name") == "backbone":
+                        param_group["lr"] = self.config.backbone_lr
+
+                # build scheduler now s.t. it starts its warmup/cosine from step 0
+                # calculate remaining epochs so the scheduler fits the remaining time
+                remaining_epochs = self.config.epochs - epoch
+
+                # temporary override config to build scheduler for the remaining horizon
+                original_epochs = self.config.epochs
+                self.config.epochs = remaining_epochs
+                scheduler, _ = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
+                self.config.epochs = original_epochs
+
+            for batch in tqdm(train_dl, desc=f"Epoch {epoch}", leave=False):
+                self._inner_step(
+                    model=model,
+                    train_batch=batch,
+                    loss_fn=loss_fn,
+                    optimizer=optimizer,
+                    scheduler=scheduler,  # This will be None until unfreeze
+                    dirichlet_alpha_learner=dirichlet_alpha_learner,
+                    step=step,
+                )
+                step += 1
+
+                if validate_every_step != 0 and (step) % validate_every_step == 0:
+                    if self._validate(model, task, early_stopping, step, val_dl):
+                        return model
+
+            if validate_every_epoch != 0 and (epoch + 1) % validate_every_epoch == 0:
+                if self._validate(model, task, early_stopping, step, val_dl):
+                    return model
 
         # Epochs is zero, so count by steps.
         else:
@@ -337,16 +410,8 @@ class Trainer:
                     dirichlet_alpha_learner=dirichlet_alpha_learner,
                     step=step,
                 )
-                validate = (step + 1) % validate_every_step == 0
-                if validate:
-                    stopped = self._validate(
-                        model,
-                        task,
-                        early_stopping,
-                        step,
-                        val_dl,
-                    )
-                    if stopped:
+                if validate_every_step != 0 and (step) % validate_every_step == 0:
+                    if self._validate(model, task, early_stopping, step, val_dl):
                         break
 
         for callback in self.callbacks:
@@ -359,7 +424,7 @@ class Trainer:
         train_batch: tuple[DataItem, torch.Tensor],
         loss_fn: nn.Module,
         optimizer: Optimizer,
-        scheduler: CosineAnnealingWarmRestarts | None,
+        scheduler: SequentialLR | CosineAnnealingWarmRestarts | None,
         step: int,
         dirichlet_alpha_learner: DirichletAlphaLearner | None = None,
     ) -> None:
@@ -371,6 +436,7 @@ class Trainer:
             optimizer=optimizer,
             scheduler=scheduler,
             dirichlet_alpha_learner=dirichlet_alpha_learner,
+            step=step,
         )
         train_metrics: Sequence[TaskMetric] = []
         for callback in self.callbacks:
@@ -479,7 +545,8 @@ def _train_step(
     loss_fn: nn.Module,
     dirichlet_config: DirichletConfig | None,
     optimizer: Optimizer,
-    scheduler: CosineAnnealingWarmRestarts | None = None,
+    step: int,
+    scheduler: SequentialLR | CosineAnnealingWarmRestarts | None = None,
     dirichlet_alpha_learner: DirichletAlphaLearner | None = None,
 ) -> float:
     optimizer.zero_grad()
@@ -488,11 +555,16 @@ def _train_step(
     data, target = batch[0].to(model.device), batch[1].to(model.device)
 
     out = model(data)
-    if dirichlet_config is not None and dirichlet_config.enabled:
+    if (
+        dirichlet_config is not None
+        and dirichlet_config.enabled
+        and dirichlet_config.warmup_epochs <= step
+    ):
         # Dirichlet prior
         dirichlet_cfg: dict[str, Any] = dirichlet_config.model_dump()
         del dirichlet_cfg["enabled"]
         del dirichlet_cfg["alpha_lr"]
+        del dirichlet_cfg["warmup_epochs"]
 
         if dirichlet_alpha_learner is not None:
             current_alphas = dirichlet_alpha_learner()
@@ -513,6 +585,10 @@ def _train_step(
     train_loss = loss_fn(out, target).to(model.device)
 
     train_loss.backward()
+
+    # gradient clipping
+    # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
     optimizer.step()
     if scheduler is not None:
         scheduler.step()
