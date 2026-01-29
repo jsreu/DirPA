@@ -209,7 +209,7 @@ class Trainer:
         optimizer: Optimizer,
         steps_per_epoch: int,
     ) -> tuple[SequentialLR | CosineAnnealingWarmRestarts | None, int | None]:
-
+        # TODO: double-check logic
         # if annealing is off, return None and the standard patience
         if self.config.cosine_annealing == 0:
             return None, self.config.patience
@@ -443,7 +443,7 @@ class Trainer:
             if step % 10 == 0:
                 if isinstance(callback, MLFlowCallback) and scheduler:
                     cast(MLFlowCallback, callback).mlflow_logger.log(
-                        "lr", scheduler.get_last_lr()[0], global_step=step
+                        "lr", float(scheduler.get_last_lr()[0]), global_step=step
                     )
                 callback.train_callback(train_loss, train_metrics, model=model, step=step)
 
