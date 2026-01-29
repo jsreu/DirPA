@@ -120,7 +120,7 @@ def _sample_dirichlet_prior(
         pi = torch.distributions.Dirichlet(alpha_tensor).sample()
     else:
         pi = torch.distributions.Dirichlet(
-            torch.full((c,), float(alpha), dtype=torch.float32)
+            torch.full((c,), cast(float, alpha), dtype=torch.float32)
         ).sample()
 
     if blend_with_uniform:
