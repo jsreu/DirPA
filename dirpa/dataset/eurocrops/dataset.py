@@ -132,7 +132,8 @@ class EuroCropsDataset(Dataset[LabelledData]):
                 # range before normalization and scaling: [-1000, 1.0e+4]
                 # normalize to [-0.1, 1.0+]
                 normalized_s2 = np_data_dict["S2"] * NORMALIZING_FACTOR_S2
-                # clipping negative values to 0 before shifting, also clip upper bound to 1.2 (extreme brightness)
+                # clipping negative values to 0 before shifting
+                # also clip upper bound to 1.2 (extreme brightness)
                 normalized_s2 = np.clip(normalized_s2, 0, 1.2)
                 # push to positive
                 normalized_s2 += EPSILON

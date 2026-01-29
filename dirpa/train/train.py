@@ -1,5 +1,4 @@
 import logging
-import math
 from collections.abc import Sequence
 from typing import Any, Literal, Type, cast
 
@@ -381,12 +380,14 @@ class Trainer:
                 step += 1
 
                 if validate_every_step != 0 and (step) % validate_every_step == 0:
-                    if self._validate(model, task, early_stopping, step, val_dl):
-                        return model
+                    stopped = self._validate(model, task, early_stopping, step, val_dl)
+                    if stopped:
+                        break
 
             if validate_every_epoch != 0 and (epoch + 1) % validate_every_epoch == 0:
-                if self._validate(model, task, early_stopping, step, val_dl):
-                    return model
+                stopped = self._validate(model, task, early_stopping, step, val_dl)
+                if stopped:
+                    break
 
         # Epochs is zero, so count by steps.
         else:
@@ -411,7 +412,8 @@ class Trainer:
                     step=step,
                 )
                 if validate_every_step != 0 and (step) % validate_every_step == 0:
-                    if self._validate(model, task, early_stopping, step, val_dl):
+                    stopped = self._validate(model, task, early_stopping, step, val_dl)
+                    if stopped:
                         break
 
         for callback in self.callbacks:
