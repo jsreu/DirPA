@@ -280,6 +280,8 @@ class Trainer:
             validate_every_step: Number of training batches between validation runs (if epoch==0).
             validate_every_epoch: Number of epochs between validation runs (if epoch>0).
             warmup_steps: Number of initial warmup steps.
+            freeze_backbone_epoch: Number of epochs during which the backbone is initially frozen.
+                If 0, the backbone will not be frozen.
 
         Returns:
             Adapted model
