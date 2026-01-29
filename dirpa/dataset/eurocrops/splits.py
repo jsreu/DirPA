@@ -92,7 +92,7 @@ def _build_finetune_dataset_split(
     finetune_regions: set | None = None,
     class_downsample: tuple[int | None, float | None] | None = None,
     force_rebuild: bool = False,
-    finetune_split_mode: Literal["structured", "random"] = "random",
+    finetune_split_mode: Literal["stratified", "random"] = "random",
 ) -> None:
     """Build data split for EuroCrops data.
 
@@ -117,8 +117,8 @@ def _build_finetune_dataset_split(
             If None, no downsampling is taking place. If the identifier is None, all classes will
             be downsampled.
         force_rebuild: Whether to rebuild split if split file already exists.
-        finetune_split_mode: Whether to use structured or random splitting for fine-tuning.
-            structured splitting, based on the number of samples for class c:
+        finetune_split_mode: Whether to use stratified or random splitting for fine-tuning.
+            stratified splitting, based on the number of samples for class c:
                 - 1 sample for class c: assigned to train
                 - 2 samples for class c: 1 to train and the other one randomly to val or test
                 - >= 3 samples: randomly distributed between train, val, and test while making sure
@@ -193,7 +193,7 @@ def split_dataset_by_region(
     finetune_regions: set[str] | None = None,
     class_downsample: tuple[int | None, float | None] | None = None,
     test_size: float = 0.2,
-    finetune_split_mode: Literal["structured", "random"] = "random",
+    finetune_split_mode: Literal["stratified", "random"] = "random",
 ) -> None:
     """Split dataset by regions or regions and classes.
 
@@ -217,8 +217,8 @@ def split_dataset_by_region(
             frequency of all other classes, in case no downsample probability is given.
             If None, no downsampling is taking place. If the identifier is None, all classes will
             be downsampled.
-        finetune_split_mode: Whether to use structured or random splitting for fine-tuning.
-            structured splitting, based on the number of samples for class c:
+        finetune_split_mode: Whether to use stratified or random splitting for fine-tuning.
+            stratified splitting, based on the number of samples for class c:
                 - 1 sample for class c: assigned to train
                 - 2 samples for class c: 1 to train and the other one randomly to val or test
                 - >= 3 samples: randomly distributed between train, val, and test while making sure
@@ -309,7 +309,7 @@ def _create_finetune_set(
     num_samples: dict[str, str | int | list[int | str]],
     test_size: float,
     seed: int,
-    finetune_split_mode: Literal["random", "structured"],
+    finetune_split_mode: Literal["random", "stratified"],
 ) -> None:
     finetune_list: list[str] = [
         value for values_list in finetune_dataset.values() for value in values_list
@@ -377,7 +377,8 @@ def _create_finetune_set(
 
         finetune_test.extend([n2_files[c][1] for c in c_test_query])
         finetune_val.extend([n2_files[c][1] for c in c_val_query])
-
+        # import pdb
+        # pdb.set_trace()
         for c, files in n_remain_files.items():
             random.shuffle(files)
             # N>=3: all samples for this class go to the high_shot_data_pool
@@ -439,25 +440,29 @@ def _create_finetune_set(
         for c, f in high_shot_data_pool:
             class_pools[c].append(f)
 
-        # perform the stratified sampling
+        # perform the stratified sampling with a "Train-First" guarantee
         for _, class_samples in class_pools.items():
             random.shuffle(class_samples)
             class_count = len(class_samples)
 
-            # Calculate target counts for this class
-            val_count = math.ceil(class_count * val_ratio)
-            test_count = math.ceil(class_count * test_ratio)
+            # Reserve 1 for train immediately
+            reserved_for_train = 1
+            available_for_splits = class_count - reserved_for_train
 
-            # Adjust to ensure counts don't exceed available samples and total split is efficient
-            val_count = min(val_count, class_count)
-            test_count = min(test_count, class_count - val_count)
+            # Calculate target counts based on the remaining available samples
+            val_count = math.floor(class_count * val_ratio)
+            test_count = math.floor(class_count * test_ratio)
+
+            # Final safety check to ensure we don't exceed available_for_splits
+            val_count = min(val_count, available_for_splits)
+            test_count = min(test_count, available_for_splits - val_count)
 
             # Split the samples
             val_samples = class_samples[:val_count]
             test_samples = class_samples[val_count : val_count + test_count]
+            # Everything else (including the reserved 1) goes to train
             train_samples = class_samples[val_count + test_count :]
 
-            # Add to the final lists
             finetune_val.extend(val_samples)
             finetune_test.extend(test_samples)
             finetune_train.extend(train_samples)
