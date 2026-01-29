@@ -11,9 +11,9 @@ from eurocropsml.dataset.config import (
     EuroCropsDatasetConfig,
     EuroCropsDatasetPreprocessConfig,
 )
-from eurocropsml.dataset.dataset import EuroCropsDataset
 from eurocropsml.dataset.utils import MMapStore
 
+from dirpa.dataset.eurocrops.dataset import EuroCropsDataset
 from dirpa.dataset.eurocrops.utils import _downsample
 from dirpa.dataset.task import Task
 from dirpa.train.utils import get_metrics
