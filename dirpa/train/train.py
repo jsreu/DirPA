@@ -347,49 +347,51 @@ class Trainer:
         if self.config.stop_early:
             early_stopping = EarlyStopping(patience=patience, warmup_steps=warmup_steps)
 
-        step = 0
-        epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
+        # If epoch>0 we count by epochs.
+        if self.config.epochs:
+            step = 0
+            epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
 
-        for epoch in epochs_bar:
-            # unfreeze backbone
-            if freeze_backbone_epoch > 0 and epoch == freeze_backbone_epoch:
-                logger.info(f"Unfreezing backbone. Initializing scheduler at epoch {epoch}")
+            for epoch in epochs_bar:
+                # unfreeze backbone
+                if freeze_backbone_epoch > 0 and epoch == freeze_backbone_epoch:
+                    logger.info(f"Unfreezing backbone. Initializing scheduler at epoch {epoch}")
 
-                for param_group in optimizer.param_groups:
-                    if param_group.get("name") == "backbone":
-                        param_group["lr"] = self.config.backbone_lr
+                    for param_group in optimizer.param_groups:
+                        if param_group.get("name") == "backbone":
+                            param_group["lr"] = self.config.backbone_lr
 
-                # build scheduler now s.t. it starts its warmup/cosine from step 0
-                # calculate remaining epochs so the scheduler fits the remaining time
-                remaining_epochs = self.config.epochs - epoch
+                    # build scheduler now s.t. it starts its warmup/cosine from step 0
+                    # calculate remaining epochs so the scheduler fits the remaining time
+                    remaining_epochs = self.config.epochs - epoch
 
-                # temporary override config to build scheduler for the remaining horizon
-                original_epochs = self.config.epochs
-                self.config.epochs = remaining_epochs
-                scheduler, _ = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
-                self.config.epochs = original_epochs
+                    # temporary override config to build scheduler for the remaining horizon
+                    original_epochs = self.config.epochs
+                    self.config.epochs = remaining_epochs
+                    scheduler, _ = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
+                    self.config.epochs = original_epochs
 
-            for batch in tqdm(train_dl, desc=f"Epoch {epoch}", leave=False):
-                self._inner_step(
-                    model=model,
-                    train_batch=batch,
-                    loss_fn=loss_fn,
-                    optimizer=optimizer,
-                    scheduler=scheduler,  # This will be None until unfreeze
-                    dirichlet_alpha_learner=dirichlet_alpha_learner,
-                    step=step,
-                )
-                step += 1
+                for batch in tqdm(train_dl, desc=f"Epoch {epoch}", leave=False):
+                    self._inner_step(
+                        model=model,
+                        train_batch=batch,
+                        loss_fn=loss_fn,
+                        optimizer=optimizer,
+                        scheduler=scheduler,  # This will be None until unfreeze
+                        dirichlet_alpha_learner=dirichlet_alpha_learner,
+                        step=step,
+                    )
+                    step += 1
 
-                if validate_every_step != 0 and (step) % validate_every_step == 0:
+                    if validate_every_step != 0 and (step) % validate_every_step == 0:
+                        stopped = self._validate(model, task, early_stopping, step, val_dl)
+                        if stopped:
+                            break
+
+                if validate_every_epoch != 0 and (epoch + 1) % validate_every_epoch == 0:
                     stopped = self._validate(model, task, early_stopping, step, val_dl)
                     if stopped:
                         break
-
-            if validate_every_epoch != 0 and (epoch + 1) % validate_every_epoch == 0:
-                stopped = self._validate(model, task, early_stopping, step, val_dl)
-                if stopped:
-                    break
 
         # Epochs is zero, so count by steps.
         else:
