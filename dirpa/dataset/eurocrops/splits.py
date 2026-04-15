@@ -479,8 +479,22 @@ def _create_finetune_set(
             _save_to_dict(finetune_train, finetune_val, finetune_test),
         )
         sample_list.remove("all")
+
+    file_to_class = {f: c for c, files in finetune_dataset.items() for f in files}
     for max_samples in sample_list:
         train = _sample_max_samples(finetune_train, max_samples, seed)
+
+        class_to_files: dict[int, list[str]] = defaultdict(list)
+        for f in train:
+            class_to_files[file_to_class[f]].append(f)
+
+        train = []
+        for files in class_to_files.values():
+            shortage = int(max_samples) - len(files)
+            train.extend(files +
+                         (resample(files, replace=True, n_samples=shortage, random_state=seed)
+                          if shortage > 0 else []))
+
         _save_to_json(
             split_path.joinpath(f"{split}_split_{max_samples}.json"),
             _save_to_dict(train, finetune_val, finetune_test),
