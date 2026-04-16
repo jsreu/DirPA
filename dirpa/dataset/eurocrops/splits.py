@@ -479,10 +479,8 @@ def _create_finetune_set(
             _save_to_dict(finetune_train, finetune_val, finetune_test),
         )
         sample_list.remove("all")
-
     for max_samples in sample_list:
         train = _sample_max_samples(finetune_train, max_samples, seed)
-
         _save_to_json(
             split_path.joinpath(f"{split}_split_{max_samples}.json"),
             _save_to_dict(train, finetune_val, finetune_test),
