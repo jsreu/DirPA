@@ -1,6 +1,6 @@
 import json
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
 from functools import reduce
 from operator import add
 from pathlib import Path
@@ -12,10 +12,12 @@ from eurocropsml.dataset.config import (
     EuroCropsDatasetPreprocessConfig,
 )
 from eurocropsml.dataset.utils import MMapStore
+from sklearn.utils import resample
 
 from dirpa.dataset.eurocrops.dataset import EuroCropsDataset
 from dirpa.dataset.eurocrops.utils import _downsample
 from dirpa.dataset.task import Task
+from dirpa.settings import Settings
 from dirpa.train.utils import get_metrics
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ def load_dataset_split(
     max_samples: int | str,
     class_ids_to_names: dict[str, str] | None,
     downsample_classes: dict[int, float] | None = None,
+    oversample: bool = False,
 ) -> Task:
     """Load EuroCrops data.
 
@@ -43,6 +46,7 @@ def load_dataset_split(
         max_samples: Maximum number of samples per class within finetuning dataset.
         class_ids_to_names: Optional mapping from class identifiers to readable class names.
         downsample_classes: Used for downsampling or fully removing classes from the training.
+        oversample: Whether to oversample minority classes to reach max_samples per class.
 
     Returns:
         Task containing train, validation, and optionally test dataset.
@@ -98,6 +102,26 @@ def load_dataset_split(
         train_list = reduce(add, train.values())
         val_list = reduce(add, val.values())
         if mode == "finetuning":
+
+            if oversample and isinstance(max_samples, int):
+                ref = train[satellites[0]]
+                class_to_indices: dict[int, list[int]] = defaultdict(list)
+                for i, f in enumerate(ref):
+                    class_to_indices[int(f.stem.split("_")[-1])].append(i)
+
+                oversampled_indices = []
+                for indices in class_to_indices.values():
+                    shortage = max_samples - len(indices)
+                    oversampled_indices.extend(
+                        indices + (resample(indices, replace=True, n_samples=shortage,
+                                            random_state=Settings().seed)if shortage > 0 else [])
+                    )
+
+                for s in satellites:
+                    train[s] = [train[s][i] for i in oversampled_indices]
+
+                train_list = reduce(add, train.values())
+
             test = data_satellite_split["test"]
             if downsample_classes is not None:
                 for drop_class, drop_prob in downsample_classes.items():
