@@ -32,6 +32,7 @@ def load_dataset_split(
     max_samples: int | str,
     class_ids_to_names: dict[str, str] | None,
     downsample_classes: dict[int, float] | None = None,
+    oversample: bool = False,
 ) -> Task:
     """Load EuroCrops data.
 
@@ -45,6 +46,7 @@ def load_dataset_split(
         max_samples: Maximum number of samples per class within finetuning dataset.
         class_ids_to_names: Optional mapping from class identifiers to readable class names.
         downsample_classes: Used for downsampling or fully removing classes from the training.
+        oversample: Whether to oversample minority classes to reach max_samples per class.
 
     Returns:
         Task containing train, validation, and optionally test dataset.
@@ -101,8 +103,7 @@ def load_dataset_split(
         val_list = reduce(add, val.values())
         if mode == "finetuning":
 
-            # oversampling
-            if isinstance(max_samples, int):
+            if oversample and isinstance(max_samples, int):
                 ref = train[satellites[0]]
                 class_to_indices: dict[int, list[int]] = defaultdict(list)
                 for i, f in enumerate(ref):
