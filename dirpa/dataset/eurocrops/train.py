@@ -142,7 +142,8 @@ def load_dataset_split(
     encoding = {int(c): i for i, c in enumerate(class_list)}
 
     logger.info(f"Computing {mode} task.")
-    mmap_store = MMapStore(train_list + val_list + (test_list if test_list is not None else []))
+    all_files = list(set(train_list + val_list + (test_list if test_list is not None else [])))
+    mmap_store = MMapStore(all_files)
     metrics = get_metrics(
         dataset_config.metrics,
         num_classes=len(class_names),
