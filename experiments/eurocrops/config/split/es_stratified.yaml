@@ -14,7 +14,7 @@ num_samples:
   validation: 5000
   test: "all"
 
-class_downsample: [null, 10000] #[3302000000, 0.0]
+class_downsample: [null, 10000]
 
 finetune_split_mode: "stratified"
 
@@ -252,7 +252,7 @@ pretrain_classes:
     - 3301090303
 finetune_classes:
   region:
-    - 3399000000
+    #- 3399000000
     - 3306000000
     - 3301000000
     - 3302000000

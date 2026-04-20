@@ -270,6 +270,10 @@ def split_dataset_by_region(
         finetune_dataset is not None and finetune_regions is not None
     ):  # otherwise EuroCrops is solely used for pretraining
         finetune_dataset = _filter_regions(finetune_dataset, finetune_regions)
+        if finetune_classes is not None:
+            classes_to_delete = set(finetune_dataset.keys()).difference(finetune_classes)
+            for c in classes_to_delete:
+                del finetune_dataset[c]
 
         _create_finetune_set(
             finetune_dataset,
@@ -354,9 +358,7 @@ def _create_finetune_set(
             )
 
     else:
-        finetune_train = []
-        finetune_val = []
-        finetune_test = []
+        finetune_train, finetune_val, finetune_test = [], [], []
 
         # keep track of high-shot samples reserved for final stratified split
         high_shot_data_pool = []
@@ -366,19 +368,26 @@ def _create_finetune_set(
         n2_files = {c: files for c, files in finetune_dataset.items() if len(files) == 2}
         n_remain_files = {c: files for c, files in finetune_dataset.items() if len(files) > 2}
         n2_classes = list(n2_files.keys())
+        random.shuffle(n2_classes)
 
+        for files in n2_files.values():
+            random.shuffle(files)
+        # assign one of N<=2 samples to train
         finetune_train.extend(n1_files)
         finetune_train.extend([files[0] for _, files in n2_files.items()])
 
-        random.shuffle(n2_classes)
-        split_point = len(n2_classes) // 2
-        c_val_query = set(n2_classes[:split_point])
-        c_test_query = set(n2_classes[split_point:])
+        c_val_query = set()
+        c_test_query = set()
+
+        for i, c in enumerate(n2_classes):
+            if i % 2 == 0:
+                c_val_query.add(c)
+            else:
+                c_test_query.add(c)
 
         finetune_test.extend([n2_files[c][1] for c in c_test_query])
         finetune_val.extend([n2_files[c][1] for c in c_val_query])
-        # import pdb
-        # pdb.set_trace()
+
         for c, files in n_remain_files.items():
             random.shuffle(files)
             # N>=3: all samples for this class go to the high_shot_data_pool
@@ -386,8 +395,8 @@ def _create_finetune_set(
             for f in files:
                 high_shot_data_pool.append((c, f))
 
-        # Calculate remaining capacity for Val/Test splits
-        # N=2 classes already added 1 sample to the Test set
+        # calculate remaining capacity for val/test splits
+        # N=2 classes already added 1 sample to the test pr val set
         full_dataset_size = len(finetune_list)
         current_val_size = len(finetune_val)
         current_test_size = len(finetune_test)
@@ -443,19 +452,13 @@ def _create_finetune_set(
         # perform the stratified sampling with a "Train-First" guarantee
         for _, class_samples in class_pools.items():
             random.shuffle(class_samples)
+            # Reserve 1 for train immediately
+            finetune_train.append(class_samples.pop())
             class_count = len(class_samples)
 
-            # Reserve 1 for train immediately
-            reserved_for_train = 1
-            available_for_splits = class_count - reserved_for_train
-
             # Calculate target counts based on the remaining available samples
-            val_count = math.floor(class_count * val_ratio)
-            test_count = math.floor(class_count * test_ratio)
-
-            # Final safety check to ensure we don't exceed available_for_splits
-            val_count = min(val_count, available_for_splits)
-            test_count = min(test_count, available_for_splits - val_count)
+            val_count = max(1, math.floor(class_count * val_ratio))
+            test_count = max(1, math.floor(class_count * test_ratio))
 
             # Split the samples
             val_samples = class_samples[:val_count]
@@ -466,6 +469,7 @@ def _create_finetune_set(
             finetune_val.extend(val_samples)
             finetune_test.extend(test_samples)
             finetune_train.extend(train_samples)
+
 
     sample_list: list[str | int]
     if isinstance(num_samples["train"], list):

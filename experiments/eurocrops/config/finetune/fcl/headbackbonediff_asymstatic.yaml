@@ -16,9 +16,10 @@ tuning_params:
       high: 1.0e-3
   ints: {}
   categoricals:
-    # Tuning for global stability
+    # Tuning for class-specific focus
     loss_config.gamma: [1.0, 1.5, 2.0, 3.0]
-    dirichlet_config.alpha: [0.01,0.1,0.5,1.0,2.0, 3.0, 5.0]
+    dirichlet_config.alpha_focus: [1.5, 2.0, 3.0, 5.0]
+    dirichlet_config.alpha_common: [0.1, 0.2, 0.5, 0.9, 1.5]
     dirichlet_config.tau: [0.5,1.0,2.0,5.0,10.0]
     freeze_backbone_epoch: [0, 2, 5, 8, 15]
     
@@ -32,14 +33,15 @@ train_config:
   epochs: 200
   patience: 20
   stop_early: True
-  loss_config:
-    name: "FCL"           # focal
-    gamma: 2.0
-    alpha: false 
+  loss_config: 
+    name: "CE"          # cross-entropy
   # --- Dirichlet prior augmentation ---
   dirichlet_config:
     enabled: true
+    alpha_mode: 'asymmetric'
     alpha: 0.7
+    alpha_focus: 2.0
+    alpha_common: 0.5
     tau: 1.0
     blend_with_uniform: false
-    beta: 0.8  
+    beta: 0.8

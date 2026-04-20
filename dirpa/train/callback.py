@@ -6,6 +6,7 @@ from tempfile import mkdtemp
 from typing import Any
 
 import optuna
+import torch
 
 from dirpa.models.base import Model
 from dirpa.train.utils import ScalarMetric, TaskMetric
@@ -34,6 +35,7 @@ class TrainCallback:
         metrics: Sequence[TaskMetric],
         model: Model,
         step: int,
+        dirichlet_alphas: dict[str, torch.Tensor] | None = None
     ) -> None:
         """Function called at validation step."""
 
@@ -66,6 +68,7 @@ class ValidationCallback(TrainCallback):
         metrics: Sequence[TaskMetric],
         model: Model,
         step: int,
+        dirichlet_alphas: dict[str, torch.Tensor] | None = None
     ) -> None:
         """Function called at validation step.
 
@@ -153,6 +156,7 @@ class OptunaCallback(TrainCallback):
         metrics: Sequence[TaskMetric],
         model: Model,
         step: int | None = None,
+        dirichlet_alphas: dict[str, torch.Tensor] | None = None
     ) -> None:
         """Function called at validation step."""
         if self.key_metric == "loss":

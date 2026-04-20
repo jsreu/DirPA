@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import matplotlib
 import mlflow
+import torch
 from mlflow.exceptions import MlflowException
 
 from dirpa.experiment.utils import configure_mlflow
@@ -27,9 +28,9 @@ class MLFlowLogger:
     def __init__(self, experiment_name: str):
         configure_mlflow(experiment_name)
 
-    def start_run(self, run_name: str | None = None) -> None:
+    def start_run(self, run_name: str | None = None, nested: bool = False) -> None:
         """Start a new mflow run."""
-        mlflow.start_run(run_name=run_name)
+        mlflow.start_run(run_name=run_name, nested=nested)
 
     def end_run(self, run_name: str | None = None) -> None:
         """End the current mflow run."""
@@ -67,6 +68,14 @@ class MLFlowLogger:
         """Log model as artifacts."""
         try:
             mlflow.log_artifact(artifact_path)
+        except MlflowException as e:
+            logger.warning("mlflow exception: %s", str(e))
+
+    @staticmethod
+    def log_artifacts(local_dir: str, artifact_path: str | None = None) -> None:
+        """Log a local directory of artifacts to MLflow."""
+        try:
+            mlflow.log_artifacts(local_dir, artifact_path=artifact_path)
         except MlflowException as e:
             logger.warning("mlflow exception: %s", str(e))
 
@@ -197,10 +206,12 @@ class MLFlowCallback(TrainCallback):
         metrics: Sequence[TaskMetric],
         model: Model,
         step: int | None = None,
+        dirichlet_alphas: dict[str, torch.Tensor] | None = None
     ) -> None:
         """Function called at validation step."""
         scalar_metrics: dict[str, float] = {}
         artifact_metrics: dict[str, TaskMetric] = {}
+
         for metric in metrics:
             if isinstance(metric, ScalarMetric):
                 scalar_metrics["val_" + metric.name] = metric.get_scalar()
@@ -212,6 +223,14 @@ class MLFlowCallback(TrainCallback):
             self._log_model(f"model_{step}", model)
         if self.log_artifact_metrics_on_validation:
             self.mlflow_logger.log_artifact_metrics(artifact_metrics, global_step=step)
+
+        if dirichlet_alphas is not None:
+            dirichlet_alpha_scalars: dict[str, float] = {
+                name: value.detach().cpu().item()
+                for name, value in dirichlet_alphas.items()
+            }
+            self.mlflow_logger.log_scalar_metrics(dirichlet_alpha_scalars, global_step=step)
+
 
     def test_callback(
         self,

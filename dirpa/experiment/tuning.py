@@ -178,4 +178,5 @@ def run_tuning(
         # Clean up database if study is interrupted to make sure
         # runs with same name can be started.
         storage_path.unlink()
+
     return study

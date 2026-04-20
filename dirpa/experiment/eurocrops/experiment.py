@@ -3,6 +3,7 @@ from typing import Literal
 import eurocropsml.settings
 from eurocropsml.dataset.splits import get_split_dir
 
+from dirpa.dataset.task import Task
 from dirpa.experiment.eurocrops.config import EuroCropsTransferConfig
 from dirpa.experiment.eurocrops.utils import load_task
 from dirpa.experiment.transfer import (
@@ -39,6 +40,10 @@ class EuroCropsExperimentBuilder(TransferExperimentBuilder[EuroCropsTransferConf
         data_dir = eurocropsml.settings.Settings().data_dir
 
         split_dir = get_split_dir(data_dir, self.config.split.base_name)
+
+        Task.DATALOADER_NUM_WORKERS = (
+            self.config.pretrain.train_config.dataloader_num_workers
+        )
 
         if mode == "finetune":
             finetuning_tasks = {

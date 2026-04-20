@@ -1,14 +1,66 @@
 from __future__ import annotations
 
 import random
+from abc import abstractmethod
 from typing import Literal, cast
 
+import numpy as np
 import torch
 import torch.nn as nn
 from pydantic import BaseModel, field_validator
 
 
+def _inv_softplus(x: float) -> float:
+    return cast(float, np.log(np.exp(x) - 1.0))
+
 class DirichletAlphaLearner(nn.Module):
+    """Dirichlet alpha learner."""
+    @abstractmethod
+    def __init__(self) -> None:
+        super().__init__()
+
+    @abstractmethod
+    def forward(self) -> dict[str, torch.Tensor]:
+        """Forward pass for asymmetric Dirichlet alpha learner."""
+
+class SymmetricDirichletAlphaLearner(DirichletAlphaLearner):
+    """Symmetric Dirichlet alpha learner using a single alpha.
+
+    Args:
+        alpha: Start value for alpha.
+            Default: 1.0 for uniform distribution.
+        activation_fct:
+        eps: Epsilon to prevent alpha from being zero.
+    """
+
+    def __init__(
+            self,
+            alpha: float = 1.0,
+            activation_fct: Literal["softplus", "sigmoid"] = "softplus",
+            eps: float = 1e-8
+            ) -> None:
+        super().__init__()
+
+        if activation_fct == "softplus":
+            val = _inv_softplus(alpha)
+            init_alpha = torch.as_tensor(val, dtype=torch.float32)
+            self.act_fct: nn.Softplus | nn.Sigmoid = nn.Softplus()
+        else:
+            alpha_clamped = max(min(alpha, 1.0 - 1e-6), 1e-6)
+            init_alpha = torch.log(torch.tensor(alpha_clamped) / (1 - torch.tensor(alpha_clamped)))
+            self.act_fct = nn.Sigmoid()
+
+        self.value = nn.Parameter(init_alpha.clone().detach())
+
+        self.eps = eps
+
+    def forward(self) -> dict[str, torch.Tensor]:
+        """Forward pass for asymmetric Dirichlet alpha learner."""
+        alpha = self.act_fct(self.value) + self.eps
+
+        return {"alpha": alpha}
+
+class AsymmetricDirichletAlphaLearner(DirichletAlphaLearner):
     """Asymmetric Dirichlet alpha learner using two distinct alphas.
 
     Args:
@@ -20,19 +72,20 @@ class DirichletAlphaLearner(nn.Module):
     def __init__(self, alpha_focus: float, alpha_common: float, eps: float = 1e-8):
         super().__init__()
 
-        self.v_focus = nn.Parameter(torch.tensor(alpha_focus, dtype=torch.float32))
-        self.v_common = nn.Parameter(torch.tensor(alpha_common, dtype=torch.float32))
+        init_alpha_focus = _inv_softplus(alpha_focus)
+        init_alpha_common = _inv_softplus(alpha_common)
+        self.v_focus = nn.Parameter(torch.tensor(init_alpha_focus, dtype=torch.float32))
+        self.v_common = nn.Parameter(torch.tensor(init_alpha_common, dtype=torch.float32))
 
         self.softplus = nn.Softplus()
         self.eps = eps
 
-    def forward(self) -> dict[str, float]:
+    def forward(self) -> dict[str, torch.Tensor]:
         """Forward pass for asymmetric Dirichlet alpha learner."""
-        alpha_focus = (self.softplus(self.v_focus) + self.eps).item()
-        alpha_common = (self.softplus(self.v_common) + self.eps).item()
+        alpha_focus = self.softplus(self.v_focus) + self.eps
+        alpha_common = self.softplus(self.v_common) + self.eps
 
         return {"alpha_focus": alpha_focus, "alpha_common": alpha_common}
-
 
 class DirichletConfig(BaseModel):
     """Configuration for Dirichlet Distribution sampling."""
@@ -41,6 +94,7 @@ class DirichletConfig(BaseModel):
     alpha_mode: Literal["symmetric", "asymmetric"] = "symmetric"
     warmup_epochs: int = 0
     alpha: float | None = None  # spikiness of Dir(C, alpha)
+    activation_fct: Literal["sigmoid", "softplus"] = "softplus"
     alpha_focus: float | None = None
     alpha_common: float | None = None
     alpha_lr: float | None = None
@@ -77,9 +131,9 @@ class DirichletConfig(BaseModel):
 def _sample_dirichlet_prior(
     c: int,
     tau: float,
-    alpha: float | None = None,
-    alpha_focus: float | None = None,
-    alpha_common: float | None = None,
+    alpha: float | torch.Tensor | None = None,
+    alpha_focus: float | torch.Tensor | None = None,
+    alpha_common: float | torch.Tensor | None = None,
     alpha_mode: Literal["symmetric", "asymmetric"] = "symmetric",
     eps: float = 1e-8,
     blend_with_uniform: bool = False,
@@ -112,21 +166,27 @@ def _sample_dirichlet_prior(
 
     # sample prior on (K-1)-simplex
     if alpha_mode == "asymmetric":
-        alpha_focus = cast(float, alpha_focus)
-        alpha_common = cast(float, alpha_common)
+        assert alpha_focus is not None
+        assert alpha_common is not None
+        # ensure we use the device of the tensors if they are learnable
+        dev = alpha_common.device if isinstance(alpha_common, torch.Tensor) else torch.device("cpu")
+        alpha_tensor = torch.ones(c, device=dev) * cast(float, alpha_common)
         focus_class_idx: int = random.randint(0, c - 1)
-        alpha_tensor: torch.Tensor = torch.full((c,), float(alpha_common), dtype=torch.float32)
         alpha_tensor[focus_class_idx] = alpha_focus
-        pi = torch.distributions.Dirichlet(alpha_tensor).sample()
+        pi = torch.distributions.Dirichlet(alpha_tensor).rsample()
     else:
-        pi = torch.distributions.Dirichlet(
-            torch.full((c,), cast(float, alpha), dtype=torch.float32)
-        ).sample()
+        assert alpha is not None
+        # ensure we use the device of the tensors if they are learnable
+        dev = alpha.device if isinstance(alpha, torch.Tensor) else torch.device("cpu")
+        alpha_tensor = torch.ones(c, device=dev) * cast(float, alpha)
+        pi = torch.distributions.Dirichlet(alpha_tensor).rsample()
 
     if blend_with_uniform:
         beta = cast(float, beta)
-        pi = (1 - beta) * (torch.full((c,), 1.0 / c, dtype=torch.float32)) + beta * pi
-        pi = pi / pi.sum()  # renormalize for numeric safety
+        uniform_prior = torch.full((c,), 1.0 / c, dtype=torch.float32, device=dev)
+        pi = (1 - beta) * uniform_prior + beta * pi
+        # renormalize for numerical safety after blending
+        pi = pi / pi.sum()
 
     # numerical safety
     prior_adjustment = tau * torch.log(pi.clamp_min(eps))

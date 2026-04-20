@@ -14,7 +14,7 @@ num_samples:
   validation: 5000
   test: "all"
 
-class_downsample: [null, 10000] #[3302000000, null] #[null, 5000] #[3302000000, 0.0]
+class_downsample: [null, 10000] 
 
 finetune_split_mode: "stratified"
 
