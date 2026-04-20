@@ -1,4 +1,4 @@
-base_name: "AT_DE_vs_PT_stratified"
+base_name: "AT_DE_vs_PT_stratified_new"
 data_dir: "preprocess"
 random_seed: 42
 num_samples:

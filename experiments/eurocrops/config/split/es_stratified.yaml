@@ -1,4 +1,4 @@
-base_name: "AT_DE_vs_ESNA_stratified"
+base_name: "AT_DE_vs_ESNA_stratified_new"
 data_dir: "preprocess"
 random_seed: 42
 num_samples:
@@ -252,7 +252,7 @@ pretrain_classes:
     - 3301090303
 finetune_classes:
   region:
-    - 3399000000
+    #- 3399000000
     - 3306000000
     - 3301000000
     - 3302000000

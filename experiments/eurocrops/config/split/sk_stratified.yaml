@@ -1,4 +1,4 @@
-base_name: "AT_DE_vs_SK_stratified" # Slovakia
+base_name: "AT_DE_vs_SK_stratified_new" # Slovakia
 data_dir: "preprocess"
 random_seed: 42
 num_samples:
