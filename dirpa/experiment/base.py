@@ -3,9 +3,11 @@ import logging
 from abc import abstractmethod
 from functools import partial
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Generic, Literal, Mapping, TypeVar, cast
 
 import optuna
+import optuna.visualization as vis
 import torch
 from pydantic import BaseModel, ConfigDict
 
@@ -130,7 +132,7 @@ class TunedExperiment(Generic[ExperimentConfigT]):
         for name, cfg in original_config.items():
             overriden_config[name] = overwrite_config(cfg, extra_params)
 
-        mlflow_logger.start_run(run_name)
+        mlflow_logger.start_run(run_name, nested=tuning)
 
         tags = self.config.tags.copy()
         tags["stage"] = "tuning" if tuning else "training"
@@ -213,18 +215,28 @@ class TunedExperiment(Generic[ExperimentConfigT]):
         if self.config.key_metric == "loss":
             direction = "minimize"
 
-        study = run_tuning(
-            trainable=partial(self._wrapped_run, tuning=True),
-            tuning_params=tuning_params,
-            study_name=study_name,
-            runs_dir=self.runs_dir,
-            num_workers=self.config.tuning_workers,
-            num_trials=self.config.tuning_trials,
-            tuning_sampler=self.config.tuning_sampler,
-            tuning_pruning_percentile=self.config.tuning_pruning_percentile,
-            tuning_pruning_warmup_steps=self.config.tuning_pruning_warmup_steps,
-            direction=direction,
-        )
+        parent_logger = MLFlowLogger(self.config.name)
+        parent_logger.start_run(study_name)
+
+        try:
+            study = run_tuning(
+                trainable=partial(self._wrapped_run, tuning=True),
+                tuning_params=tuning_params,
+                study_name=study_name,
+                runs_dir=self.runs_dir,
+                num_workers=self.config.tuning_workers,
+                num_trials=self.config.tuning_trials,
+                tuning_sampler=self.config.tuning_sampler,
+                tuning_pruning_percentile=self.config.tuning_pruning_percentile,
+                tuning_pruning_warmup_steps=self.config.tuning_pruning_warmup_steps,
+                direction=direction,
+            )
+
+            self._log_optuna_plots(study, parent_logger)
+
+        finally:
+            # end parent run
+            parent_logger.end_run()
 
         best_trial = study.best_trial
         results = self._get_trial_runs(study_name=study_name, trial_id=best_trial._trial_id)
@@ -251,6 +263,53 @@ class TunedExperiment(Generic[ExperimentConfigT]):
                 "Could not find unambigous run for trial. " f"Expected 1 run. Got {len(runs)}"
             )
         return runs
+
+    def _log_optuna_plots(self, study: optuna.Study, logger: MLFlowLogger) -> None:
+        try:
+            # Optuna needs at least 2 trials to calculate importance/contours
+            if len(study.trials) <= 1:
+                return
+
+            with TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
+
+                # 1. Parameter Importance
+                importance_path = tmp_path / "importance.html"
+                vis.plot_param_importances(study).write_html(str(importance_path))
+                logger.log_artifact(str(importance_path.absolute())) # Matches log_json pattern
+
+                # 2. LR Interaction
+                lr_params = ["head_lr", "backbone_lr"]
+                if all(p in study.best_params for p in lr_params):
+                    lr_path = tmp_path / "lr_interaction.html"
+                    vis.plot_contour(study, params=lr_params).write_html(str(lr_path))
+                    logger.log_artifact(str(lr_path.absolute()))
+
+                # 3. Dirichlet Interaction (Conditioned on presence in best_params)
+                dirichlet_params = ["dirichlet_config.tau", "dirichlet_config.alpha"]
+                if all(p in study.best_params for p in dirichlet_params):
+                    dir_path = tmp_path / "dirichlet_tau_alpha_interaction.html"
+                    vis.plot_contour(study, params=dirichlet_params).write_html(str(dir_path))
+                    logger.log_artifact(str(dir_path.absolute()))
+
+                # 4. Asymmetric Dirichlet Interaction
+                asym_params = [
+                    "dirichlet_config.tau",
+                    "dirichlet_config.alpha_focus",
+                    "dirichlet_config.alpha_common"
+                ]
+                if all(p in study.best_params for p in asym_params):
+                    asym_path = tmp_path / "dirichlet_tau_alpha_asym_interaction.html"
+                    vis.plot_contour(study, params=asym_params).write_html(str(asym_path))
+                    logger.log_artifact(str(asym_path.absolute()))
+
+                # 5. Optimization History
+                history_path = tmp_path / "optimization_history.html"
+                vis.plot_optimization_history(study).write_html(str(history_path))
+                logger.log_artifact(str(history_path.absolute()))
+
+        except Exception as e:
+            logging.error(f"Failed to log Optuna plots: {e}")
 
     def run_training(
         self, run_name: str | None, extra_params: dict[str, Any] | None = None
