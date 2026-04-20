@@ -17,8 +17,10 @@ from dirpa.experiment.logger import MLFlowCallback
 from dirpa.models.base import DataItem, Model
 from dirpa.train.callback import TrainCallback
 from dirpa.train.dirpa import (
+    AsymmetricDirichletAlphaLearner,
     DirichletAlphaLearner,
     DirichletConfig,
+    SymmetricDirichletAlphaLearner,
     _sample_dirichlet_prior,
 )
 from dirpa.train.loss import (
@@ -38,6 +40,9 @@ class TrainConfig(BaseConfig):
         batch_size: The number of samples per batch.
         epochs: The number of epochs.
         steps: The number of total training steps. Ignored if epochs is not 0.
+        dataloader_num_workers: Number of workers used for dataloading.
+            Defaults to None which then defaults to the number of available workers.
+        prefetch_factor: Prefetch factor used during dataloading. Defaults to 2.
         head_lr: Head learning rate for Training algorithm.
         backbone_lr: Backbone learning rate for Training algorithm.
         lr: Learning rate for Training algorithm.
@@ -60,6 +65,8 @@ class TrainConfig(BaseConfig):
     batch_size: int
     epochs: int = 0
     steps: int = Field(0, validate_default=True)
+    dataloader_num_workers: int | None = None
+    prefetch_factor: int = 2
     head_lr: float | None = Field(None, validate_default=True)
     backbone_lr: float | None = Field(None, validate_default=True)
     lr: float | None = Field(None, validate_default=True)
@@ -192,10 +199,12 @@ class Trainer:
             ]
             optimizer_lr = cast(float, lr)
         if dirichlet_alpha_learner is not None:
+            if alpha_lr is None:
+                alpha_lr = optimizer_lr if head_lr is None else head_lr
             params.append(
                 {
                     "params": dirichlet_alpha_learner.parameters(),
-                    "lr": alpha_lr if alpha_lr is not None else optimizer_lr,
+                    "lr": alpha_lr,
                     "weight_decay": 0.0,
                     "name": "alpha_learner",
                 }
@@ -310,16 +319,24 @@ class Trainer:
             dirichlet_config = cast(DirichletConfig, self.config.dirichlet_config)
             if (
                 dirichlet_config.enabled
-                and dirichlet_config.alpha_mode == "asymmetric"
                 and dirichlet_config.alpha_lr != 0.0
             ):
-                dirichlet_alpha_learner = cast(
-                    DirichletAlphaLearner,
-                    DirichletAlphaLearner(
-                        cast(float, dirichlet_config.alpha_focus),
-                        cast(float, dirichlet_config.alpha_common),
-                    ),
-                )
+                if dirichlet_config.alpha_mode=="symmetric":
+                    dirichlet_alpha_learner = cast(
+                        DirichletAlphaLearner,
+                        SymmetricDirichletAlphaLearner(
+                            cast(float, dirichlet_config.alpha),
+                            cast(Literal["softplus", "sigmoid"], dirichlet_config.activation_fct),
+                        ),
+                    ).to(model.device)
+                else:
+                    dirichlet_alpha_learner = cast(
+                        DirichletAlphaLearner,
+                        AsymmetricDirichletAlphaLearner(
+                            cast(float, dirichlet_config.alpha_focus),
+                            cast(float, dirichlet_config.alpha_common),
+                        ),
+                    ).to(model.device)
             alpha_lr = cast(float, dirichlet_config.alpha_lr)
 
         # initialize Optimizer
@@ -347,49 +364,65 @@ class Trainer:
         if self.config.stop_early:
             early_stopping = EarlyStopping(patience=patience, warmup_steps=warmup_steps)
 
-        step = 0
-        epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
+        # If epoch>0 we count by epochs.
+        if self.config.epochs:
+            step = 0
+            epochs_bar = trange(self.config.epochs, desc="Epochs", position=0, leave=True)
 
-        for epoch in epochs_bar:
-            # unfreeze backbone
-            if freeze_backbone_epoch > 0 and epoch == freeze_backbone_epoch:
-                logger.info(f"Unfreezing backbone. Initializing scheduler at epoch {epoch}")
+            for epoch in epochs_bar:
+                # unfreeze backbone
+                if freeze_backbone_epoch > 0 and epoch == freeze_backbone_epoch:
+                    logger.info(f"Unfreezing backbone. Initializing scheduler at epoch {epoch}")
 
-                for param_group in optimizer.param_groups:
-                    if param_group.get("name") == "backbone":
-                        param_group["lr"] = self.config.backbone_lr
+                    for param_group in optimizer.param_groups:
+                        if param_group.get("name") == "backbone":
+                            param_group["lr"] = self.config.backbone_lr
 
-                # build scheduler now s.t. it starts its warmup/cosine from step 0
-                # calculate remaining epochs so the scheduler fits the remaining time
-                remaining_epochs = self.config.epochs - epoch
+                    # build scheduler now s.t. it starts its warmup/cosine from step 0
+                    # calculate remaining epochs so the scheduler fits the remaining time
+                    remaining_epochs = self.config.epochs - epoch
 
-                # temporary override config to build scheduler for the remaining horizon
-                original_epochs = self.config.epochs
-                self.config.epochs = remaining_epochs
-                scheduler, _ = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
-                self.config.epochs = original_epochs
+                    # temporary override config to build scheduler for the remaining horizon
+                    original_epochs = self.config.epochs
+                    self.config.epochs = remaining_epochs
+                    scheduler, _ = self._build_scheduler(optimizer, steps_per_epoch=len(train_dl))
+                    self.config.epochs = original_epochs
 
-            for batch in tqdm(train_dl, desc=f"Epoch {epoch}", leave=False):
-                self._inner_step(
-                    model=model,
-                    train_batch=batch,
-                    loss_fn=loss_fn,
-                    optimizer=optimizer,
-                    scheduler=scheduler,  # This will be None until unfreeze
-                    dirichlet_alpha_learner=dirichlet_alpha_learner,
-                    step=step,
-                )
-                step += 1
+                for batch in tqdm(train_dl, desc=f"Epoch {epoch}", leave=False):
+                    self._inner_step(
+                        model=model,
+                        train_batch=batch,
+                        loss_fn=loss_fn,
+                        optimizer=optimizer,
+                        scheduler=scheduler,  # This will be None until unfreeze
+                        dirichlet_alpha_learner=dirichlet_alpha_learner,
+                        step=step,
+                    )
+                    step += 1
 
-                if validate_every_step != 0 and (step) % validate_every_step == 0:
-                    stopped = self._validate(model, task, early_stopping, step, val_dl)
+                    if validate_every_step != 0 and (step) % validate_every_step == 0:
+                        stopped = self._validate(
+                            model,
+                            task,
+                            early_stopping,
+                            step,
+                            val_dl,
+                            dirichlet_alpha_learner
+                            )
+                        if stopped:
+                            break
+
+                if validate_every_epoch != 0 and (epoch + 1) % validate_every_epoch == 0:
+                    stopped = self._validate(
+                        model,
+                        task,
+                        early_stopping,
+                        step,
+                        val_dl,
+                        dirichlet_alpha_learner
+                        )
                     if stopped:
                         break
-
-            if validate_every_epoch != 0 and (epoch + 1) % validate_every_epoch == 0:
-                stopped = self._validate(model, task, early_stopping, step, val_dl)
-                if stopped:
-                    break
 
         # Epochs is zero, so count by steps.
         else:
@@ -414,7 +447,14 @@ class Trainer:
                     step=step,
                 )
                 if validate_every_step != 0 and (step) % validate_every_step == 0:
-                    stopped = self._validate(model, task, early_stopping, step, val_dl)
+                    stopped = self._validate(
+                        model,
+                        task,
+                        early_stopping,
+                        step,
+                        val_dl,
+                        dirichlet_alpha_learner
+                    )
                     if stopped:
                         break
 
@@ -458,6 +498,7 @@ class Trainer:
         early_stopping: EarlyStopping | None,
         step: int,
         val_dl: DataLoader,
+        dirichlet_alpha_learner: DirichletAlphaLearner | None = None,
     ) -> bool:
         val_loss, val_metrics = self._evaluation_loop(val_dl, task, model)
 
@@ -468,6 +509,8 @@ class Trainer:
                     val_metrics,
                     model,
                     step=step,
+                    dirichlet_alphas=dirichlet_alpha_learner()
+                    if dirichlet_alpha_learner is not None else None,
                 )
             except optuna.TrialPruned as e:
                 # even if we prune, make sure to properly end all callbacks
@@ -569,11 +612,15 @@ def _train_step(
         del dirichlet_cfg["enabled"]
         del dirichlet_cfg["alpha_lr"]
         del dirichlet_cfg["warmup_epochs"]
+        del dirichlet_cfg["activation_fct"]
 
         if dirichlet_alpha_learner is not None:
             current_alphas = dirichlet_alpha_learner()
-            dirichlet_cfg["alpha_focus"] = current_alphas["alpha_focus"]
-            dirichlet_cfg["alpha_common"] = current_alphas["alpha_common"]
+            if dirichlet_config.alpha_mode=="symmetric":
+                dirichlet_cfg["alpha"] = current_alphas["alpha"]
+            else:
+                dirichlet_cfg["alpha_focus"] = current_alphas["alpha_focus"]
+                dirichlet_cfg["alpha_common"] = current_alphas["alpha_common"]
 
         prior_adj = _sample_dirichlet_prior(
             out.size(-1),
