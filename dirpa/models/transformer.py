@@ -50,13 +50,14 @@ class TransformerBackbone(nn.Module):
         x = self._in_layernorm(x)
         x = self._in_linear(x)
         enc_output: torch.Tensor = self._pos_encoding(x, kwargs.get("dates"))
-        # TODO: double-check if thi is correct
+        # TODO: double-check if this is correct
         if (mask := kwargs.get("mask")) is not None and mask.dim() == x.dim():
             # masking of full time steps
             mask = mask.any(-1)
         encoder_out = self._encoder(enc_output, src_key_padding_mask=mask)
 
         return cast(torch.Tensor, encoder_out)
+
 
 
 class TransformerConfig(ModelConfig):
@@ -86,6 +87,7 @@ class TransformerModel(Model):
 
     def forward(self, ipt: DataItem) -> torch.Tensor:
         out = self.backbone(ipt.data, **ipt.meta_data)
+
         match self.head:
             case nn.Linear():
                 return cast(torch.Tensor, self.head(out.mean(1)))
