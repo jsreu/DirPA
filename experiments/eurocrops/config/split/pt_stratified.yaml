@@ -1,4 +1,4 @@
-base_name: "AT_DE_vs_PT_stratified_new"
+base_name: "AT_DE_vs_PT_stratified"
 data_dir: "preprocess"
 random_seed: 42
 num_samples:
@@ -14,7 +14,7 @@ num_samples:
   validation: 5000
   test: "all"
 
-class_downsample: [null, 10000] #[3302000000, 0.0]
+class_downsample: [null, 10000] 
 
 finetune_split_mode: "stratified"
 
