@@ -46,6 +46,7 @@ class Task:
         self,
         ds: TransformDataset,
         batch_size: int,
+        prefetch_factor: int | None = 2,
         mode: Literal["train", "test"] = "train",
     ) -> DataLoader:
         num_workers = self.DATALOADER_NUM_WORKERS
@@ -58,6 +59,8 @@ class Task:
             num_workers=num_workers,
             drop_last=False,
             collate_fn=ds.collate_fn,
+            prefetch_factor=prefetch_factor if num_workers > 0 else None,
+            pin_memory=True,
             persistent_workers=bool(num_workers),
         )
 
